@@ -86,4 +86,6 @@ Tags matching `v*` are protected: they can't be deleted or moved.
 
 - Every PR gets a **Vercel preview deployment**; the URL is posted on the PR.
 - `main` deploys to **production** automatically.
+- Duku explores each preview and each production deploy (see README → Duku). The check run it
+  posts reflects whether the exploration completed, not whether it found issues.
 - Roll back by redeploying a previous production deployment in Vercel, then land a `fix`/`revert` PR.
