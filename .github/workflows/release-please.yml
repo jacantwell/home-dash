@@ -1,0 +1,23 @@
+# Opens/updates a release PR on every push to main. Merging it tags vX.Y.Z,
+# publishes a GitHub Release and updates CHANGELOG.md + package.json.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release please
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # PAT so the release PR triggers required CI checks (GITHUB_TOKEN-authored PRs don't).
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
