@@ -15,7 +15,7 @@ jobs:
     name: Release please
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
           # PAT so the release PR triggers required CI checks (GITHUB_TOKEN-authored PRs don't).
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}

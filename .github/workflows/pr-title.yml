@@ -31,6 +31,9 @@ jobs:
             chore
             revert
           requireScope: false
+          # dependabot capitalises subjects; its PRs are still conventional (ci:/chore:)
+          ignoreLabels: |
+            dependencies
           subjectPattern: ^(?![A-Z]).+$
           subjectPatternError: |
             The subject "{subject}" must start with a lowercase letter.
