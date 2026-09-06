@@ -11,6 +11,7 @@ const existing: Message = {
   id: 1,
   text: "old news",
   color: "#00FF00",
+  duration_s: 30,
   status: "sent",
   error: null,
   sender_name: "Jasper",
@@ -22,6 +23,7 @@ const failed: Message = {
   id: 2,
   text: "never made it",
   color: null,
+  duration_s: null,
   status: "failed",
   error: "board timed out",
 };
@@ -87,7 +89,69 @@ describe("BoardClient", () => {
 
     const [, init] = fetchMock.mock.calls[1];
     expect(init?.method).toBe("POST");
-    expect(JSON.parse(String(init?.body))).toEqual({ text: "dinner", color: "#FF8C00" });
+    expect(JSON.parse(String(init?.body))).toEqual({
+      text: "dinner",
+      color: "#FF8C00",
+      duration_s: 10,
+    });
+  });
+
+  it("shows how long each message was shown for", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { messages: [existing, failed] }));
+    render(<BoardClient />);
+
+    const items = await screen.findAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("30s");
+    expect(items[1]).not.toHaveTextContent(/\d+s/);
+  });
+
+  it.each([
+    ["5s", 5],
+    ["1m", 60],
+    ["5m", 300],
+  ])("preset %s sends duration_s %i", async (label, expected) => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { messages: [] }))
+      .mockResolvedValueOnce(jsonResponse(202, { ...existing, id: 5, text: "yo" }));
+    render(<BoardClient />);
+    await screen.findByText(/nothing yet/i);
+
+    await user.click(screen.getByRole("button", { name: label }));
+    expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Seconds to show")).toHaveValue(expected);
+    await user.type(screen.getByLabelText("Message"), "yo");
+    await user.click(screen.getByRole("button", { name: /send to board/i }));
+
+    await screen.findByText("yo");
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      duration_s: expected,
+    });
+  });
+
+  it.each([
+    ["45", 45],
+    ["0", 1],
+    ["9999", 300],
+  ])("typed duration %s is clamped and sent as %i", async (typed, expected) => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { messages: [] }))
+      .mockResolvedValueOnce(jsonResponse(202, { ...existing, id: 6, text: "yo" }));
+    render(<BoardClient />);
+    await screen.findByText(/nothing yet/i);
+
+    const field = screen.getByLabelText("Seconds to show");
+    await user.clear(field);
+    await user.type(field, typed);
+    await user.type(screen.getByLabelText("Message"), "yo");
+    await user.click(screen.getByRole("button", { name: /send to board/i }));
+
+    await screen.findByText("yo");
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      duration_s: expected,
+    });
+    expect(field).toHaveValue(expected);
   });
 
   it("sends color null when board default is ticked", async () => {
@@ -106,6 +170,7 @@ describe("BoardClient", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
       text: "plain",
       color: null,
+      duration_s: 10,
     });
   });
 

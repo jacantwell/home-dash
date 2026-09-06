@@ -5,9 +5,15 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   ApiError,
+  clampDuration,
   DEFAULT_COLOR,
+  DEFAULT_DURATION_S,
+  DURATION_PRESETS_S,
+  formatDuration,
   listMessages,
+  MAX_DURATION_S,
   MAX_MESSAGE_LENGTH,
+  MIN_DURATION_S,
   type Message,
   sendMessage,
 } from "@/lib/api";
@@ -15,6 +21,8 @@ import { formatAbsolute, formatRelative } from "@/lib/time";
 
 const buttonClass =
   "rounded-full bg-zinc-950 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200";
+const chipClass =
+  "rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium transition-colors hover:border-zinc-950 aria-pressed:bg-zinc-950 aria-pressed:text-white dark:border-zinc-700 dark:hover:border-zinc-50 dark:aria-pressed:bg-zinc-50 dark:aria-pressed:text-zinc-950";
 
 function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
@@ -29,6 +37,9 @@ export function BoardClient() {
   const [text, setText] = useState("");
   const [color, setColor] = useState(DEFAULT_COLOR);
   const [useDefaultColor, setUseDefaultColor] = useState(false);
+  // kept as a string so the field can be emptied while typing; clamped on submit
+  const [durationInput, setDurationInput] = useState(String(DEFAULT_DURATION_S));
+  const duration = clampDuration(Number(durationInput));
   const [pending, setPending] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -64,9 +75,11 @@ export function BoardClient() {
       const created = await sendMessage(token, {
         text: trimmed,
         color: useDefaultColor ? null : color,
+        duration_s: duration,
       });
       setMessages((prev) => [created, ...(prev ?? [])]);
       setText("");
+      setDurationInput(String(duration));
     } catch (err) {
       setSubmitError(errorMessage(err));
     } finally {
@@ -117,6 +130,38 @@ export function BoardClient() {
             />
             Use board default
           </label>
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium">Show for</legend>
+          <div className="flex flex-wrap items-center gap-2">
+            {DURATION_PRESETS_S.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                aria-pressed={duration === preset}
+                onClick={() => setDurationInput(String(preset))}
+                className={chipClass}
+              >
+                {formatDuration(preset)}
+              </button>
+            ))}
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="number"
+                aria-label="Seconds to show"
+                inputMode="numeric"
+                min={MIN_DURATION_S}
+                max={MAX_DURATION_S}
+                step={1}
+                value={durationInput}
+                onChange={(e) => setDurationInput(e.target.value)}
+                onBlur={() => setDurationInput(String(duration))}
+                className="w-20 rounded-lg border border-zinc-300 bg-transparent px-3 py-1 text-sm outline-none focus:border-zinc-950 dark:border-zinc-700 dark:focus:border-zinc-50"
+              />
+              <span className="text-xs text-zinc-500">seconds, max {MAX_DURATION_S}</span>
+            </label>
+          </div>
         </fieldset>
 
         <div className="flex items-center gap-4">
@@ -171,6 +216,15 @@ function MessageRow({ message }: { message: Message }) {
           <time dateTime={message.created_at} title={formatAbsolute(message.created_at)}>
             {formatRelative(message.created_at)}
           </time>
+          {message.duration_s !== null && (
+            <>
+              {" "}
+              ·{" "}
+              <span title={`shown for ${message.duration_s}s`}>
+                {formatDuration(message.duration_s)}
+              </span>
+            </>
+          )}
         </p>
       </div>
       <span
