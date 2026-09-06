@@ -44,8 +44,9 @@ jobs:
           api-key: ${{ secrets.PLATFORM_API_KEY }}
           product-id: ${{ vars.DUKU_PRODUCT_ID }}
           api-url: ${{ vars.DUKU_API_URL || 'https://platform.duku.ai/graphql' }}
-          # Must match the environment declared on the product in Viewport.
-          environment: production
+          # Must match the environment declared on the product in Viewport — the
+          # production environment there is named `default`.
+          environment: default
           # Same value the app reports as NEXT_PUBLIC_APP_VERSION.
           release-label: v${{ steps.version.outputs.version }}
           github-token: ${{ github.token }}

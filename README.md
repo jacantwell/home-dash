@@ -40,9 +40,9 @@ Every PR's Vercel preview and every production deploy is explored by [Duku](http
   `preview` action. Results land as a sticky PR comment and a `Duku Exploration (<product>)`
   check run.
 - `duku-environment.yml` waits for the Vercel **Production** deployment of each `main` commit,
-  then runs the `environment` action against the `production` environment, labelling the build
-  with the app version (`vX.Y.Z`, same as `NEXT_PUBLIC_APP_VERSION`) and linking the PR preview
-  builds that landed in it.
+  then runs the `environment` action against the `default` environment — Duku's name for a
+  product's production environment — labelling the build with the app version (`vX.Y.Z`, same
+  as `NEXT_PUBLIC_APP_VERSION`) and linking the PR preview builds that landed in it.
 
 Configuration lives in repo settings: variables `DUKU_PRODUCT_ID`, `DUKU_API_URL` (sandbox for
 now) and secrets `PLATFORM_API_KEY`, optional `VERCEL_AUTOMATION_BYPASS_SECRET`. Both actions
