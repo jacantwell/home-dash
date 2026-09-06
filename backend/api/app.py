@@ -10,12 +10,14 @@ from api.config import Settings
 from api.db import Message, MessageRepo, get_repo
 
 TEXT_MAX = 200
+DURATION_MAX_S = 300
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 class MessageIn(BaseModel):
     text: str
     color: str | None = None
+    duration_s: int | None = Field(default=None, ge=1, le=DURATION_MAX_S)
 
     @field_validator("text")
     @classmethod
@@ -73,12 +75,13 @@ def create_app(settings: Settings, verifier: ClerkVerifier | None = None) -> Fas
         token: Annotated[str, Depends(bearer_token)],
         repo: Annotated[MessageRepo, Depends(get_repo)],
     ) -> Message:
-        result = send_to_board(settings, token, body.text, body.color)
+        result = send_to_board(settings, token, body.text, body.color, body.duration_s)
         message = repo.insert(
             clerk_user_id=claims["sub"],
             sender_name=sender_name_from(claims),
             text=body.text,
             color=body.color,
+            duration_s=body.duration_s,
             status="sent" if result.ok else "failed",
             error=result.error,
         )

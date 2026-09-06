@@ -9,13 +9,14 @@ from pydantic import BaseModel
 
 Status = Literal["sent", "failed"]
 
-_COLUMNS = "id, text, color, status, error, sender_name, created_at"
+_COLUMNS = "id, text, color, duration_s, status, error, sender_name, created_at"
 
 
 class Message(BaseModel):
     id: int
     text: str
     color: str | None
+    duration_s: int | None
     status: Status
     error: str | None
     sender_name: str
@@ -29,16 +30,17 @@ def insert_message(
     sender_name: str,
     text: str,
     color: str | None,
+    duration_s: int | None,
     status: Status,
     error: str | None,
 ) -> Message:
     row = conn.execute(
         f"""
-        INSERT INTO messages (clerk_user_id, sender_name, text, color, status, error)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO messages (clerk_user_id, sender_name, text, color, duration_s, status, error)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING {_COLUMNS}
         """,
-        (clerk_user_id, sender_name, text, color, status, error),
+        (clerk_user_id, sender_name, text, color, duration_s, status, error),
     ).fetchone()
     return Message.model_validate(row)
 
@@ -61,6 +63,7 @@ class MessageRepo(Protocol):
         sender_name: str,
         text: str,
         color: str | None,
+        duration_s: int | None,
         status: Status,
         error: str | None,
     ) -> Message: ...

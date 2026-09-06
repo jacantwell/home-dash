@@ -5,6 +5,7 @@ export interface Message {
   id: number;
   text: string;
   color: string | null;
+  duration_s: number | null;
   status: MessageStatus;
   error: string | null;
   sender_name: string;
@@ -14,10 +15,25 @@ export interface Message {
 export interface NewMessage {
   text: string;
   color: string | null;
+  duration_s: number | null;
 }
 
 export const MAX_MESSAGE_LENGTH = 200;
 export const DEFAULT_COLOR = "#FF8C00";
+export const MIN_DURATION_S = 1;
+export const MAX_DURATION_S = 300;
+export const DEFAULT_DURATION_S = 10;
+export const DURATION_PRESETS_S = [5, 10, 30, 60, 300] as const;
+
+export function clampDuration(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_DURATION_S;
+  return Math.min(MAX_DURATION_S, Math.max(MIN_DURATION_S, Math.round(value)));
+}
+
+export function formatDuration(seconds: number): string {
+  if (seconds % 60 === 0) return `${seconds / 60}m`;
+  return `${seconds}s`;
+}
 
 export class ApiError extends Error {
   constructor(
