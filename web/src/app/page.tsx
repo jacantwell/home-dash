@@ -1,18 +1,46 @@
 import Link from "next/link";
 
+import { PixelIcon } from "@/components/pixel-icon";
+
+// The landing is an Apache-style directory listing: one row per thing the house can do.
+const ENTRIES = [
+  { href: "/board", name: "board/", description: "Send a message to the LED board" },
+];
+
+const NAME_WIDTH = 24;
+
+// Apache's `%d-%b-%Y %H:%M`.
+function apacheDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const month = d.toLocaleString("en-US", { month: "short" });
+  return `${pad(d.getDate())}-${month}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const built = apacheDate(new Date());
+
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-start justify-center gap-6 px-6 py-24">
-      <h1 className="text-4xl font-semibold tracking-tight">home-dash</h1>
-      <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-        Little control panel for the house. Right now: push a message to the LED board.
-      </p>
-      <Link
-        href="/board"
-        className="rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
-      >
-        Open the board
-      </Link>
+    <main className="raw mx-auto w-full max-w-4xl flex-1 px-4 pb-8">
+      <h1>Index of /</h1>
+      <pre>
+        <span className="inline-block w-5" aria-hidden /> {"Name".padEnd(NAME_WIDTH)}
+        {"Last modified".padEnd(20)}
+        {"Size".padEnd(6)}Description
+        <hr />
+        {ENTRIES.map((e) => (
+          <span key={e.href}>
+            <PixelIcon name="folder" size={16} label="directory" /> {""}
+            <Link href={e.href}>{e.name}</Link>
+            {"".padEnd(NAME_WIDTH - e.name.length)}
+            {built.padEnd(20)}
+            {"-".padEnd(6)}
+            {e.description}
+            {"\n"}
+          </span>
+        ))}
+        <hr />
+      </pre>
+      <address>home-dash/{process.env.NEXT_PUBLIC_APP_VERSION} Server at home Port 3000</address>
     </main>
   );
 }

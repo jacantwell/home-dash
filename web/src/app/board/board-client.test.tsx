@@ -11,7 +11,7 @@ const existing: Message = {
   id: 1,
   text: "old news",
   color: "#00FF00",
-  duration_s: 30,
+  duration_s: 10,
   status: "sent",
   error: null,
   sender_name: "Jasper",
@@ -23,13 +23,17 @@ const failed: Message = {
   id: 2,
   text: "never made it",
   color: null,
-  duration_s: null,
   status: "failed",
   error: "board timed out",
 };
 
 function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status });
+}
+
+// Body rows of the Sent Items grid; the header row is excluded.
+function messageRows() {
+  return screen.queryAllByRole("row").filter((row) => row.closest("tbody"));
 }
 
 const fetchMock = vi.fn<typeof fetch>();
@@ -52,39 +56,60 @@ afterEach(() => {
 });
 
 describe("BoardClient", () => {
-  it("loads recent messages with the bearer token and shows status pills", async () => {
+  it("loads recent messages with the bearer token and shows status", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { messages: [existing, failed] }));
     render(<BoardClient />);
 
-    expect(await screen.findByText("old news")).toBeInTheDocument();
+    await screen.findAllByText("old news");
+    expect(messageRows()).toHaveLength(2);
+    expect(messageRows()[0]).toHaveTextContent("Jasper");
     expect(screen.getByText("never made it")).toBeInTheDocument();
     expect(screen.getByText("sent")).toBeInTheDocument();
     expect(screen.getByText("failed")).toHaveAttribute("title", "board timed out");
-    expect(screen.getAllByText(/Jasper/)).toHaveLength(2);
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/messages?limit=20");
     expect(init?.headers).toMatchObject({ Authorization: "Bearer test-token" });
   });
 
-  it("submits a message and prepends the response", async () => {
+  it("selects the newest message by default and previews it on the board", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { messages: [existing, failed] }));
+    render(<BoardClient />);
+
+    await screen.findAllByText("old news");
+    expect(messageRows()[0]).toHaveAttribute("aria-selected", "true");
+    const led = screen.getAllByText("old news").find((el) => el.classList.contains("led"));
+    expect(led).toHaveStyle({ color: "#00FF00" });
+  });
+
+  it("shows the delivery error when a failed message is selected", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { messages: [existing, failed] }));
+    render(<BoardClient />);
+
+    await screen.findAllByText("old news");
+    await user.click(screen.getByText("never made it"));
+    expect(messageRows()[1]).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText(/delivery failed: board timed out/i)).toBeInTheDocument();
+  });
+
+  it("submits a message, prepends it and selects it", async () => {
     const user = userEvent.setup();
     const created: Message = { ...existing, id: 3, text: "dinner", color: "#FF8C00" };
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, { messages: [existing] }))
       .mockResolvedValueOnce(jsonResponse(202, created));
     render(<BoardClient />);
-    await screen.findByText("old news");
+    await screen.findAllByText("old news");
 
     const input = screen.getByLabelText("Message");
     await user.type(input, "dinner");
     expect(screen.getByText("6/200")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /send to board/i }));
+    await user.click(screen.getByRole("button", { name: /^send$/i }));
 
-    await waitFor(() => expect(screen.getByText("dinner")).toBeInTheDocument());
-    const items = screen.getAllByRole("listitem");
-    expect(items[0]).toHaveTextContent("dinner");
-    expect(items[1]).toHaveTextContent("old news");
+    await waitFor(() => expect(messageRows()[0]).toHaveTextContent("dinner"));
+    expect(messageRows()[0]).toHaveAttribute("aria-selected", "true");
+    expect(messageRows()[1]).toHaveTextContent("old news");
     expect(input).toHaveValue("");
 
     const [, init] = fetchMock.mock.calls[1];
@@ -96,62 +121,21 @@ describe("BoardClient", () => {
     });
   });
 
-  it("shows how long each message was shown for", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { messages: [existing, failed] }));
-    render(<BoardClient />);
-
-    const items = await screen.findAllByRole("listitem");
-    expect(items[0]).toHaveTextContent("30s");
-    expect(items[1]).not.toHaveTextContent(/\d+s/);
-  });
-
-  it.each([
-    ["5s", 5],
-    ["1m", 60],
-    ["5m", 300],
-  ])("preset %s sends duration_s %i", async (label, expected) => {
+  it("shows the sending dialog while the request is in flight", async () => {
     const user = userEvent.setup();
+    let resolvePost: (r: Response) => void = () => {};
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, { messages: [] }))
-      .mockResolvedValueOnce(jsonResponse(202, { ...existing, id: 5, text: "yo" }));
+      .mockImplementationOnce(() => new Promise((res) => (resolvePost = res)));
     render(<BoardClient />);
-    await screen.findByText(/nothing yet/i);
+    await screen.findByText(/no items in this view/i);
 
-    await user.click(screen.getByRole("button", { name: label }));
-    expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByLabelText("Seconds to show")).toHaveValue(expected);
-    await user.type(screen.getByLabelText("Message"), "yo");
-    await user.click(screen.getByRole("button", { name: /send to board/i }));
+    await user.type(screen.getByLabelText("Message"), "brb");
+    await user.click(screen.getByRole("button", { name: /^send$/i }));
 
-    await screen.findByText("yo");
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
-      duration_s: expected,
-    });
-  });
-
-  it.each([
-    ["45", 45],
-    ["0", 1],
-    ["9999", 300],
-  ])("typed duration %s is clamped and sent as %i", async (typed, expected) => {
-    const user = userEvent.setup();
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse(200, { messages: [] }))
-      .mockResolvedValueOnce(jsonResponse(202, { ...existing, id: 6, text: "yo" }));
-    render(<BoardClient />);
-    await screen.findByText(/nothing yet/i);
-
-    const field = screen.getByLabelText("Seconds to show");
-    await user.clear(field);
-    await user.type(field, typed);
-    await user.type(screen.getByLabelText("Message"), "yo");
-    await user.click(screen.getByRole("button", { name: /send to board/i }));
-
-    await screen.findByText("yo");
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
-      duration_s: expected,
-    });
-    expect(field).toHaveValue(expected);
+    expect(screen.getByRole("status")).toHaveTextContent(/sending message 1 of 1/i);
+    resolvePost(jsonResponse(202, { ...existing, id: 5, text: "brb" }));
+    await waitFor(() => expect(messageRows()).toHaveLength(1));
   });
 
   it("sends color null when board default is ticked", async () => {
@@ -160,13 +144,13 @@ describe("BoardClient", () => {
       .mockResolvedValueOnce(jsonResponse(200, { messages: [] }))
       .mockResolvedValueOnce(jsonResponse(202, { ...existing, id: 4, text: "plain", color: null }));
     render(<BoardClient />);
-    await screen.findByText(/nothing yet/i);
+    await screen.findByText(/no items in this view/i);
 
     await user.click(screen.getByLabelText(/use board default/i));
     await user.type(screen.getByLabelText("Message"), "plain");
-    await user.click(screen.getByRole("button", { name: /send to board/i }));
+    await user.click(screen.getByRole("button", { name: /^send$/i }));
 
-    await screen.findByText("plain");
+    await screen.findAllByText("plain");
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
       text: "plain",
       color: null,
@@ -175,27 +159,65 @@ describe("BoardClient", () => {
   });
 
   it.each([
+    ["1m", 60],
+    ["5m", 300],
+    ["board default", null],
+  ])("sends the chosen duration (%s)", async (label, expected) => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { messages: [] }))
+      .mockResolvedValueOnce(jsonResponse(202, { ...existing, id: 6, text: "later" }));
+    render(<BoardClient />);
+    await screen.findByText(/no items in this view/i);
+
+    await user.selectOptions(screen.getByLabelText("Duration"), label);
+    await user.type(screen.getByLabelText("Message"), "later");
+    await user.click(screen.getByRole("button", { name: /^send$/i }));
+
+    await screen.findAllByText("later");
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      duration_s: expected,
+    });
+  });
+
+  it.each([
     [401, { detail: "Token expired" }, "Token expired"],
     [422, { detail: [{ msg: "text too long" }] }, "text too long"],
     [502, { detail: "Board unreachable" }, "Board unreachable"],
-  ])("shows the detail when the POST fails with %i", async (status, body, expected) => {
+  ])("shows an error box when the POST fails with %i", async (status, body, expected) => {
     const user = userEvent.setup();
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, { messages: [] }))
       .mockResolvedValueOnce(jsonResponse(status, body));
     render(<BoardClient />);
-    await screen.findByText(/nothing yet/i);
+    await screen.findByText(/no items in this view/i);
 
     await user.type(screen.getByLabelText("Message"), "yo");
-    await user.click(screen.getByRole("button", { name: /send to board/i }));
+    await user.click(screen.getByRole("button", { name: /^send$/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(expected);
-    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+    expect(messageRows()).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "OK" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("shows an error when loading fails", async () => {
+  it("shows an error box when loading fails", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(401, { detail: "Missing token" }));
     render(<BoardClient />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Missing token");
+  });
+
+  it("reloads the list from the toolbar", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { messages: [] }))
+      .mockResolvedValueOnce(jsonResponse(200, { messages: [existing] }));
+    render(<BoardClient />);
+    await screen.findByText(/no items in this view/i);
+
+    await user.click(screen.getByRole("button", { name: /refresh/i }));
+    await screen.findAllByText("old news");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
