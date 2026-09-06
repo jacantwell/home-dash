@@ -44,8 +44,9 @@ feat(api)!: drop legacy /v0 endpoints
 chore(deps): bump next to 16.4.0
 ```
 
-Local commits on a branch don't need to be perfect (they get squashed), but the PR title does.
-Run `pnpm commitlint` to check a message if you want to keep the branch clean anyway.
+Git hooks (husky) run on every commit: `pre-commit` lints + formats staged files, `commit-msg`
+runs commitlint. `pnpm install` installs them. Branch commits get squashed, but the PR title must
+be a valid Conventional Commit.
 
 ## Versioning
 
