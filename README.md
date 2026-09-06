@@ -53,6 +53,21 @@ Lives in `backend/`; see [backend/README.md](./backend/README.md).
 | `pnpm test:watch` | Vitest in watch mode                          |
 | `pnpm format`     | Prettier write                                |
 
+## Backend
+
+`backend/` is a small FastAPI service (Python 3.12, [uv](https://docs.astral.sh/uv/)) that Vercel
+Services deploys next to the Next app and serves at `/api/*` (see `vercel.json`). It verifies Clerk
+session tokens, stores messages in Neon and forwards them to the ledboard on the Pi.
+
+```bash
+cd backend
+uv sync
+make dev           # http://localhost:8000, next dev proxies /api/* here
+make test && make lint
+```
+
+Env vars, endpoints and the auth contract are in [backend/README.md](./backend/README.md).
+
 ## Contributing, commits & versioning
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). TL;DR: Conventional Commit PR titles, squash-merge,
