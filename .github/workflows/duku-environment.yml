@@ -26,7 +26,11 @@ jobs:
 
       - name: Read app version
         id: version
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+        # Fail loudly: an empty version would label the Duku release as a bare "v".
+        run: |
+          version="$(node -p "require('./web/package.json').version")"
+          [ -n "$version" ] || { echo "::error::could not read version from web/package.json"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Wait for Vercel production deployment
         id: vercel
