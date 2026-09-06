@@ -1,0 +1,69 @@
+# Records every commit that ships to production as a Duku build, labelled with
+# the app version, then explores + tests it. On push the action also links the
+# PR preview builds to the commit they landed as.
+name: Duku production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: duku-env-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read # resolve which PRs the pushed commits came from
+
+jobs:
+  explore:
+    name: Duku production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read app version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Vercel production deployment
+        id: vercel
+        uses: ./.github/actions/wait-for-vercel
+        with:
+          sha: ${{ github.sha }}
+          environment: Production
+
+      - name: Explore production with Duku
+        id: duku
+        # Unreleased (0.4-to-be) code, pinned to duku-ai/actions main @ chrome-worker@40cbc46.
+        # Move to a release tag (environment/vX.Y.Z) once one is cut. Dependabot is told to leave this alone.
+        uses: duku-ai/actions/environment@fc380ec6b7b367a6866808a4474463a48250dde6
+        with:
+          api-key: ${{ secrets.PLATFORM_API_KEY }}
+          product-id: ${{ vars.DUKU_PRODUCT_ID }}
+          api-url: ${{ vars.DUKU_API_URL || 'https://platform.duku.ai/graphql' }}
+          # Must match the environment declared on the product in Viewport.
+          environment: production
+          # Same value the app reports as NEXT_PUBLIC_APP_VERSION.
+          release-label: v${{ steps.version.outputs.version }}
+          github-token: ${{ github.token }}
+
+      - name: Summary
+        if: always()
+        env:
+          URL: ${{ steps.vercel.outputs.url }}
+          VERSION: ${{ steps.version.outputs.version }}
+          RUN_ID: ${{ steps.duku.outputs.run-id }}
+          RUN_STATUS: ${{ steps.duku.outputs.run-status }}
+          TEST_ID: ${{ steps.duku.outputs.test-run-id }}
+          TEST_STATUS: ${{ steps.duku.outputs.test-run-status }}
+        run: |
+          {
+            echo "## Duku production — v$VERSION"
+            echo
+            echo "- **Deployed:** $URL"
+            echo "- **Exploration:** ${RUN_ID:-none} (${RUN_STATUS:-not started})"
+            echo "- **Tests:** ${TEST_ID:-none} (${TEST_STATUS:-not started})"
+          } >> "$GITHUB_STEP_SUMMARY"

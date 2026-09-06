@@ -1,0 +1,71 @@
+name: Wait for Vercel deployment
+description: >
+  Polls GitHub Deployments until the Vercel deployment for a commit reaches
+  `success`, then outputs its URL. Fails on error/failure or timeout.
+
+inputs:
+  sha:
+    description: Commit SHA the deployment was created for
+    required: true
+  environment:
+    description: Vercel GitHub deployment environment name (Preview or Production)
+    required: true
+  timeout-seconds:
+    description: How long to wait before giving up
+    required: false
+    default: "900"
+  poll-interval-seconds:
+    description: Seconds between polls
+    required: false
+    default: "15"
+  github-token:
+    description: Token with deployments:read
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  url:
+    description: The deployment's environment_url
+    value: ${{ steps.wait.outputs.url }}
+  deployment-id:
+    description: GitHub deployment id
+    value: ${{ steps.wait.outputs.deployment-id }}
+
+runs:
+  using: composite
+  steps:
+    - id: wait
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        SHA: ${{ inputs.sha }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        TIMEOUT: ${{ inputs.timeout-seconds }}
+        INTERVAL: ${{ inputs.poll-interval-seconds }}
+      run: |
+        set -euo pipefail
+        deadline=$((SECONDS + TIMEOUT))
+        while :; do
+          id=$(gh api "repos/$GITHUB_REPOSITORY/deployments?sha=$SHA&environment=$ENVIRONMENT&per_page=1" --jq '.[0].id // empty')
+          if [ -n "$id" ]; then
+            read -r state url < <(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses?per_page=1" \
+              --jq '.[0] | "\(.state // "none") \(.environment_url // .target_url // "")"')
+            echo "deployment $id: $state"
+            case "$state" in
+              success)
+                [ -n "$url" ] || { echo "::error::deployment succeeded but has no URL"; exit 1; }
+                echo "url=$url" >> "$GITHUB_OUTPUT"
+                echo "deployment-id=$id" >> "$GITHUB_OUTPUT"
+                echo "Deployed: $url"
+                exit 0 ;;
+              error|failure)
+                echo "::error::Vercel $ENVIRONMENT deployment for $SHA ended in '$state'"; exit 1 ;;
+            esac
+          else
+            echo "no $ENVIRONMENT deployment for $SHA yet"
+          fi
+          if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "::error::timed out after ${TIMEOUT}s waiting for Vercel $ENVIRONMENT deployment of $SHA"; exit 1
+          fi
+          sleep "$INTERVAL"
+        done
