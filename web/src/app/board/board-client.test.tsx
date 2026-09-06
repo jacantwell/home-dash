@@ -1,9 +1,9 @@
 import { useAuth } from "@clerk/nextjs";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Message } from "@/lib/api";
+import { MAX_DURATION_S, type Message } from "@/lib/api";
 
 import { BoardClient } from "./board-client";
 
@@ -158,9 +158,23 @@ describe("BoardClient", () => {
     });
   });
 
+  it("offers nothing longer than a minute", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { messages: [] }));
+    render(<BoardClient />);
+    await screen.findByText(/no items in this view/i);
+
+    const values = within(screen.getByLabelText("Duration"))
+      .getAllByRole("option")
+      .map((o) => (o as HTMLOptionElement).value)
+      .filter((v) => v !== "")
+      .map(Number);
+    expect(values.length).toBeGreaterThan(0);
+    expect(Math.max(...values)).toBe(MAX_DURATION_S);
+  });
+
   it.each([
+    ["30s", 30],
     ["1m", 60],
-    ["5m", 300],
     ["board default", null],
   ])("sends the chosen duration (%s)", async (label, expected) => {
     const user = userEvent.setup();

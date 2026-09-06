@@ -21,9 +21,9 @@ export interface NewMessage {
 export const MAX_MESSAGE_LENGTH = 200;
 export const DEFAULT_COLOR = "#FF8C00";
 export const MIN_DURATION_S = 1;
-export const MAX_DURATION_S = 300;
+export const MAX_DURATION_S = 60;
 export const DEFAULT_DURATION_S = 10;
-export const DURATION_PRESETS_S = [5, 10, 30, 60, 300] as const;
+export const DURATION_PRESETS_S = [5, 10, 30, 60] as const;
 
 export function clampDuration(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_DURATION_S;

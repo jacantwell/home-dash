@@ -39,7 +39,7 @@ Without an issuer the service still boots (`/api/healthz` works) and protected r
 | GET    | `/api/messages?limit=20` | yes  | `200 {"messages": [Message]}` newest first, 1..100 |
 | POST   | `/api/messages`          | yes  | `202 Message`; `429` passthrough if the Pi says so |
 
-POST body: `{"text": "1..200 chars after trim", "color": "#rrggbb" | null, "duration_s": 1..300 | null}`.
+POST body: `{"text": "1..200 chars after trim", "color": "#rrggbb" | null, "duration_s": 1..60 | null}`.
 `duration_s` is how many seconds the board shows it for (scrolling text loops until it elapses);
 `null` leaves it to the board's default. The whole thing is sent to `${LEDBOARD_URL}/text` with the
 caller's own bearer token (5s timeout); the row is inserted with `status` `sent` or `failed`

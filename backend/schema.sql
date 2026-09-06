@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS messages (
   sender_name   text        NOT NULL DEFAULT '',
   text          text        NOT NULL,
   color         text,
-  duration_s    integer     CHECK (duration_s BETWEEN 1 AND 300),  -- null: board default
+  duration_s    integer     CHECK (duration_s BETWEEN 1 AND 300),  -- null: board default; the api caps at 60
   status        text        NOT NULL CHECK (status IN ('sent', 'failed')),
   error         text,
   created_at    timestamptz NOT NULL DEFAULT now()
