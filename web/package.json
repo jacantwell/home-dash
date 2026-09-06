@@ -1,6 +1,6 @@
 {
   "name": "home-dash",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Home dashboard — Next.js frontend deployed on Vercel",
   "private": true,
   "repository": {
