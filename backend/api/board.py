@@ -13,13 +13,15 @@ class BoardResult(NamedTuple):
     status_code: int | None
 
 
-def send_to_board(settings: Settings, token: str, text: str, color: str | None) -> BoardResult:
+def send_to_board(
+    settings: Settings, token: str, text: str, color: str | None, duration_s: int | None = None
+) -> BoardResult:
     """POST the message to the Pi with the caller's bearer token. Never raises."""
     url = f"{settings.ledboard_url.rstrip('/')}/text"
     try:
         response = httpx.post(
             url,
-            json={"text": text, "color": color},
+            json={"text": text, "color": color, "duration_s": duration_s},
             headers={"Authorization": f"Bearer {token}"},
             timeout=TIMEOUT_SECONDS,
         )

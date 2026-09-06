@@ -18,7 +18,17 @@ def test_send_ok(settings: Settings, status: int) -> None:
     result = send_to_board(settings, "tok", "hi", None)
     assert result == (True, None, status)
     assert route.calls.last.request.headers["Authorization"] == "Bearer tok"
-    assert route.calls.last.request.read() == b'{"text":"hi","color":null}'
+    assert route.calls.last.request.read() == b'{"text":"hi","color":null,"duration_s":null}'
+
+
+@pytest.mark.parametrize("duration", [1, 30, 300])
+@respx.mock
+def test_send_forwards_duration(settings: Settings, duration: int) -> None:
+    route = respx.post("http://ledboard.test/text").respond(202)
+    send_to_board(settings, "tok", "hi", None, duration)
+    assert route.calls.last.request.read() == (
+        b'{"text":"hi","color":null,"duration_s":' + str(duration).encode() + b"}"
+    )
 
 
 @pytest.mark.parametrize(

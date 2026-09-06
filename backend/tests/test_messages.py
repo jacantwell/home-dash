@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 import respx
@@ -109,6 +111,11 @@ def test_unconfigured_auth_is_503(settings: Settings) -> None:
         pytest.param({"text": "hi", "color": "#fff"}, id="color-short"),
         pytest.param({"text": "hi", "color": "#gggggg"}, id="color-not-hex"),
         pytest.param({"text": "hi", "color": "ff00ff"}, id="color-no-hash"),
+        pytest.param({"text": "hi", "duration_s": 0}, id="duration-zero"),
+        pytest.param({"text": "hi", "duration_s": -5}, id="duration-negative"),
+        pytest.param({"text": "hi", "duration_s": 301}, id="duration-over-max"),
+        pytest.param({"text": "hi", "duration_s": 2.5}, id="duration-fractional"),
+        pytest.param({"text": "hi", "duration_s": "ten"}, id="duration-not-a-number"),
     ],
 )
 def test_post_rejects_bad_body(
@@ -158,6 +165,24 @@ def test_post_normalises_color(
     assert response.json()["color"] == expected
 
 
+@pytest.mark.parametrize("duration", [None, 1, 30, 300])
+def test_post_stores_and_forwards_duration(
+    client: TestClient,
+    auth: dict[str, str],
+    repo: InMemoryRepo,
+    board: respx.MockRouter,
+    duration: int | None,
+) -> None:
+    route = board.post(BOARD_TEXT_URL).respond(202)
+    body = {"text": "hi"} if duration is None else {"text": "hi", "duration_s": duration}
+    response = client.post("/api/messages", json=body, headers=auth)
+
+    assert response.status_code == 202
+    assert response.json()["duration_s"] == duration
+    assert repo.rows[0].duration_s == duration
+    assert json.loads(route.calls.last.request.content)["duration_s"] == duration
+
+
 # --- board forwarding -------------------------------------------------------------
 
 
@@ -188,7 +213,7 @@ def test_post_sent_when_board_accepts(
 
     request = route.calls.last.request
     assert request.headers["Authorization"] == auth["Authorization"]
-    assert request.content == b'{"text":"hello","color":"#ff0000"}'
+    assert request.content == b'{"text":"hello","color":"#ff0000","duration_s":null}'
 
 
 @pytest.mark.parametrize(

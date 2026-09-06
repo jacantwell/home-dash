@@ -17,6 +17,7 @@ class InMemoryRepo:
         sender_name: str,
         text: str,
         color: str | None,
+        duration_s: int | None = None,
         status: Status,
         error: str | None,
     ) -> Message:
@@ -25,6 +26,7 @@ class InMemoryRepo:
             id=len(self.rows) + 1,
             text=text,
             color=color,
+            duration_s=duration_s,
             status=status,
             error=error,
             sender_name=sender_name,
