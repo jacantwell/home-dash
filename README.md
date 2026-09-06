@@ -10,9 +10,10 @@ Home dashboard. Next.js 16 (App Router) + React 19 + Tailwind 4, TypeScript, dep
 Three processes make up the local stack:
 
 ```bash
-nvm use                      # node version from .nvmrc
-pnpm install
-cp .env.example .env.local   # then fill it in, see below
+cd web
+nvm use                      # node version from web/.nvmrc
+pnpm install                 # also installs the git hooks
+cp ../.env.example ../.env.local && ln -s ../.env.local .env.local   # one env file at the repo root, see below
 pnpm dev                     # Next.js on http://localhost:3000
 
 cd backend && make dev       # FastAPI on http://localhost:8000 (see backend/README.md)
@@ -33,7 +34,7 @@ In development `next.config.ts` rewrites `/api/*` to the FastAPI server on `:800
 
 ## Auth
 
-Clerk handles sign-in. `src/proxy.ts` (Next 16's middleware) runs `clerkMiddleware()` on every
+Clerk handles sign-in. `web/src/proxy.ts` (Next 16's middleware) runs `clerkMiddleware()` on every
 request so `auth()` works in server components; it does not protect paths itself. `/board`
 checks `auth()` and shows a sign-in prompt when logged out. The client fetches `/api/*` with
 the Clerk session token as `Authorization: Bearer <token>`, and the backend verifies it and

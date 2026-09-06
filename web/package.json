@@ -24,7 +24,7 @@
     "test:watch": "vitest",
     "commitlint": "commitlint --edit",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
-    "prepare": "husky"
+    "prepare": "cd .. && husky"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.1",
