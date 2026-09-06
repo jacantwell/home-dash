@@ -39,10 +39,6 @@ checks `auth()` and shows a sign-in prompt when logged out. The client fetches `
 the Clerk session token as `Authorization: Bearer <token>`, and the backend verifies it and
 forwards the same token to the ledboard.
 
-## Backend
-
-Lives in `backend/`; see [backend/README.md](./backend/README.md).
-
 ## Scripts
 
 | Script            | What                                          |
