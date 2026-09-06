@@ -1,4 +1,4 @@
-@AGENTS.md
+@web/AGENTS.md
 
 # Version control: plain git
 

@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
     // Bumped by release-please; surfaced for footers / debugging.
     NEXT_PUBLIC_APP_VERSION: pkg.version,
   },
+  // Dev only: proxy /api to the FastAPI dev server. In prod vercel.json routes /api/* to the
+  // python service before Next ever sees it.
+  rewrites:
+    process.env.NODE_ENV === "development"
+      ? async () => [{ source: "/api/:path*", destination: "http://127.0.0.1:8000/api/:path*" }]
+      : undefined,
 };
 
 export default nextConfig;

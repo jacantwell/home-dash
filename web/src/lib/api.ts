@@ -1,0 +1,94 @@
+// Types mirror the backend contract (backend/README.md).
+export type MessageStatus = "sent" | "failed";
+
+export interface Message {
+  id: number;
+  text: string;
+  color: string | null;
+  status: MessageStatus;
+  error: string | null;
+  sender_name: string;
+  created_at: string;
+}
+
+export interface NewMessage {
+  text: string;
+  color: string | null;
+}
+
+export const MAX_MESSAGE_LENGTH = 200;
+export const DEFAULT_COLOR = "#FF8C00";
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+type FetchLike = typeof fetch;
+
+// FastAPI returns `detail` as a string, or a list of field errors on 422.
+function extractDetail(body: unknown, fallback: string): string {
+  if (typeof body !== "object" || body === null || !("detail" in body)) return fallback;
+  const { detail } = body as { detail: unknown };
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((d) => (typeof d === "object" && d && "msg" in d ? String(d.msg) : null))
+      .filter((m): m is string => m !== null);
+    if (msgs.length) return msgs.join("; ");
+  }
+  return fallback;
+}
+
+async function request<T>(
+  path: string,
+  token: string,
+  init: RequestInit,
+  fetchImpl: FetchLike = fetch,
+): Promise<T> {
+  const res = await fetchImpl(path, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      ...init.headers,
+    },
+  });
+  const body: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiError(res.status, extractDetail(body, `Request failed (${res.status})`));
+  }
+  return body as T;
+}
+
+export async function listMessages(
+  token: string,
+  limit = 20,
+  fetchImpl?: FetchLike,
+): Promise<Message[]> {
+  const body = await request<{ messages: Message[] }>(
+    `/api/messages?limit=${limit}`,
+    token,
+    { method: "GET" },
+    fetchImpl,
+  );
+  return body.messages;
+}
+
+export function sendMessage(
+  token: string,
+  message: NewMessage,
+  fetchImpl?: FetchLike,
+): Promise<Message> {
+  return request<Message>(
+    "/api/messages",
+    token,
+    { method: "POST", body: JSON.stringify(message) },
+    fetchImpl,
+  );
+}

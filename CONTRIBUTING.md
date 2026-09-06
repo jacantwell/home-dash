@@ -16,7 +16,7 @@ pnpm format       # auto-fix formatting
 pnpm lint:fix     # auto-fix lint
 ```
 
-Node version is pinned in `.nvmrc`; package manager is pinned in `package.json#packageManager`.
+The Next app lives in `web/`; run the pnpm commands from there. Node version is pinned in `web/.nvmrc`; package manager is pinned in `package.json#packageManager`.
 
 ## Commit / PR title format
 
