@@ -20,6 +20,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/">index</Link>
               <span aria-hidden>&middot;</span>
               <Link href="/board">board</Link>
+              <span aria-hidden>&middot;</span>
+              <Link href="/terms">terms</Link>
               <span className="ml-auto flex items-center">
                 <Show when="signed-out">
                   <SignInButton mode="modal">

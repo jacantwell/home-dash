@@ -38,6 +38,21 @@ export const ICONS = {
 .#yYYYYYYYYYYY#.
 .#yYYYYYYYYYYY#.
 .##############.`,
+  document: `
+.#########......
+.#WWWWWWW##.....
+.#WWWWWWW#W#....
+.#WWWWWWW#WW#...
+.#WWWWWWW#####..
+.#Wgggggg#WWW#..
+.#WWWWWWWWWWW#..
+.#WggggggggWW#..
+.#WWWWWWWWWWW#..
+.#WggggggggWW#..
+.#WWWWWWWWWWW#..
+.#WgggggWWWWW#..
+.#WWWWWWWWWWW#..
+.#############..`,
   board: `
 gggggggggggggggg
 gKKKKKKKKKKKKKKg

@@ -4,8 +4,21 @@ import { PixelIcon } from "@/components/pixel-icon";
 
 // The landing is an Apache-style directory listing: one row per thing the house can do.
 const ENTRIES = [
-  { href: "/board", name: "board/", description: "Send a message to the LED board" },
-];
+  {
+    href: "/board",
+    name: "board/",
+    icon: "folder",
+    size: "-",
+    description: "Send a message to the LED board",
+  },
+  {
+    href: "/terms",
+    name: "terms.html",
+    icon: "document",
+    size: "4.2K",
+    description: "Terms and conditions",
+  },
+] as const;
 
 const NAME_WIDTH = 24;
 
@@ -29,11 +42,12 @@ export default function Home() {
         <hr />
         {ENTRIES.map((e) => (
           <span key={e.href}>
-            <PixelIcon name="folder" size={16} label="directory" /> {""}
+            <PixelIcon name={e.icon} size={16} label={e.icon === "folder" ? "directory" : "file"} />{" "}
+            {""}
             <Link href={e.href}>{e.name}</Link>
             {"".padEnd(NAME_WIDTH - e.name.length)}
             {built.padEnd(20)}
-            {"-".padEnd(6)}
+            {e.size.padEnd(6)}
             {e.description}
             {"\n"}
           </span>

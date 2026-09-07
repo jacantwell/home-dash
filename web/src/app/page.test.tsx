@@ -11,4 +11,12 @@ describe("Home page", () => {
     expect(screen.getByRole("link", { name: "board/" })).toHaveAttribute("href", "/board");
     expect(screen.getByText(/send a message to the led board/i)).toBeInTheDocument();
   });
+
+  it.each([
+    ["board/", "/board"],
+    ["terms.html", "/terms"],
+  ])("lists %s pointing at %s", (name, href) => {
+    render(<Page />);
+    expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
+  });
 });
