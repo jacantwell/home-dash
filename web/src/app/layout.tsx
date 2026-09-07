@@ -1,7 +1,9 @@
-import { ClerkProvider, Show, SignInButton, UserButton } from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+
+import { AuthNav } from "@/components/auth-nav";
 
 export const metadata: Metadata = {
   title: "home-dash",
@@ -24,18 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/blog">blog</Link>
               <span aria-hidden>&middot;</span>
               <Link href="/terms">terms</Link>
-              <span className="ml-auto flex items-center">
-                <Show when="signed-out">
-                  <SignInButton mode="modal">
-                    <button type="button" className="cursor-pointer underline">
-                      sign in
-                    </button>
-                  </SignInButton>
-                </Show>
-                <Show when="signed-in">
-                  <UserButton />
-                </Show>
-              </span>
+              <AuthNav />
             </nav>
             <hr />
           </header>

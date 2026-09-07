@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["lhr1"],
   "services": {
     "web": { "root": "web/", "framework": "nextjs" },
     "api": { "root": "backend/", "framework": "fastapi", "entrypoint": "main:app" }
