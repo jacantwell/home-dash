@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/jacantwell/home-dash/compare/v0.1.2...v0.1.3) (2026-09-07)
+
+
+### Bug Fixes
+
+* cap message duration at 60s ([#15](https://github.com/jacantwell/home-dash/issues/15)) ([db90c5d](https://github.com/jacantwell/home-dash/commit/db90c5de358fd1f721cac5350bffd47e6ad1185f))
+
 ## [0.1.2](https://github.com/jacantwell/home-dash/compare/v0.1.1...v0.1.2) (2026-09-06)
 
 
