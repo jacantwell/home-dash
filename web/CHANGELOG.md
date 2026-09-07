@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/jacantwell/home-dash/compare/v0.1.4...v0.1.5) (2026-09-07)
+
+
+### Features
+
+* **web:** pictochat-style blog with anonymous replies ([#21](https://github.com/jacantwell/home-dash/issues/21)) ([b20ee48](https://github.com/jacantwell/home-dash/commit/b20ee482a99a8bba65b7872ea6ecc91778c5fd28))
+
 ## [0.1.4](https://github.com/jacantwell/home-dash/compare/v0.1.3...v0.1.4) (2026-09-07)
 
 
