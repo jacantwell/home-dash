@@ -90,7 +90,7 @@ describe("Comments", () => {
 
     const pad = screen.getByRole("textbox", { name: "Your note" });
     await user.type(pad, "  hello ");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Post note" }));
 
     await waitFor(() => expect(notes()).toHaveLength(2));
     expect(notes()[1]).toHaveTextContent("hello");
@@ -117,17 +117,31 @@ describe("Comments", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).text).toBe("a\nb");
   });
 
-  it.each([
-    ["", false],
-    ["   ", false],
-    ["ok", true],
-  ])("with %j typed, send enabled is %s", async (typed, enabled) => {
+  it.each([[""], ["   "]])("does not post %j", async (typed) => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { comments: [] }));
     renderRoom();
     await screen.findByText(/nobody/i);
     if (typed) await user.type(screen.getByRole("textbox", { name: "Your note" }), typed);
-    expect(screen.getByRole("button", { name: "Send" })).toHaveProperty("disabled", !enabled);
+
+    const post = screen.getByRole("button", { name: "Post note" });
+    expect(post).toBeEnabled();
+    await user.click(post);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the form and keeps the pens out of it", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { comments: [] }));
+    renderRoom();
+    await screen.findByText(/nobody/i);
+
+    const form = screen.getByRole("form", { name: "Reply in Chat Room A" });
+    expect(within(form).queryAllByRole("radio")).toHaveLength(0);
+    expect(within(form).getByRole("textbox", { name: "Your note" })).toHaveAttribute(
+      "name",
+      "note",
+    );
+    expect(screen.getAllByRole("radio")).toHaveLength(PEN_COLORS.length);
   });
 
   it(`caps the pad at ${MAX_COMMENT_LINES} lines`, async () => {
@@ -165,7 +179,7 @@ describe("Comments", () => {
 
     const pad = screen.getByRole("textbox", { name: "Your note" });
     await user.type(pad, "hi");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Post note" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("too long");
     expect(pad).toHaveValue("hi");
