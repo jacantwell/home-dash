@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type Comment, MAX_COMMENT_LINES } from "@/lib/api";
 
-import { Comments, PEN_COLORS, PEN_STORAGE_KEY } from "./comments";
+import { Comments, highlight, matchesQuery, PEN_COLORS, PEN_STORAGE_KEY } from "./comments";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -41,6 +41,41 @@ afterEach(() => {
 function renderRoom() {
   return render(<Comments slug="hello-world" room="A" />);
 }
+
+const other: Comment = {
+  ...existing,
+  id: 2,
+  color: "#26b827",
+  text: "Worms are great",
+};
+
+describe("matchesQuery", () => {
+  it.each([
+    ["first!\nsecond", "", true],
+    ["first!\nsecond", "   ", true],
+    ["first!\nsecond", "SECOND", true],
+    ["first!\nsecond", " first ", true],
+    ["first!\nsecond", "third", false],
+    ["a.b", "a.b", true],
+    ["axb", "a.b", false],
+  ])("%j / %j -> %s", (text, query, expected) => {
+    expect(matchesQuery(text, query)).toBe(expected);
+  });
+});
+
+describe("highlight", () => {
+  it.each([
+    ["hello world", "", "hello world", []],
+    ["hello world", "o", "hello world", ["o", "o"]],
+    ["Worms are WORMS", "worms", "Worms are WORMS", ["Worms", "WORMS"]],
+    ["a.b axb", "a.b", "a.b axb", ["a.b"]],
+    ["(x) [y]", "(x)", "(x) [y]", ["(x)"]],
+  ])("%j / %j", (text, query, fullText, marks) => {
+    const { container } = render(<p>{highlight(text, query)}</p>);
+    expect(container.textContent).toBe(fullText);
+    expect([...container.querySelectorAll("mark")].map((m) => m.textContent)).toEqual(marks);
+  });
+});
 
 describe("Comments", () => {
   it("loads the room's notes anonymously and paints them in their pen colour", async () => {
@@ -199,6 +234,62 @@ describe("Comments", () => {
     renderRoom();
     await screen.findByText(/nobody/i);
     expect(screen.getByRole("radio", { name: `Pen ${PEN_COLORS[9]}` })).toBeChecked();
+  });
+
+  it("filters the log by a case-insensitive search and highlights the hits", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { comments: [existing, other] }));
+    renderRoom();
+    await screen.findByText(/worms are great/i);
+    expect(notes()).toHaveLength(2);
+
+    const search = screen.getByRole("searchbox", { name: "Search notes" });
+    await user.type(search, "WORM");
+
+    expect(notes()).toHaveLength(1);
+    expect(notes()[0]).toHaveTextContent("Worms are great");
+    expect(within(notes()[0]).getByText("Worm", { selector: "mark" })).toBeInTheDocument();
+    expect(screen.getByText("1 of 2 note(s)")).toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "the clear button",
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(screen.getByRole("button", { name: "Clear search" }));
+      },
+    ],
+    [
+      "escape",
+      async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.keyboard("{Escape}");
+      },
+    ],
+  ])("says when nothing matches and resets via %s", async (_label, reset) => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { comments: [existing, other] }));
+    renderRoom();
+    await screen.findByText(/worms are great/i);
+
+    const search = screen.getByRole("searchbox", { name: "Search notes" });
+    await user.type(search, "zebra");
+    expect(screen.getByText(/no notes match “zebra”/i)).toBeInTheDocument();
+    expect(screen.getByText("0 of 2 note(s)")).toBeInTheDocument();
+
+    await reset(user);
+    expect(search).toHaveValue("");
+    expect(notes()).toHaveLength(2);
+    expect(screen.getByText("2 note(s)")).toBeInTheDocument();
+  });
+
+  it("keeps the search bar out of the reply form and disables it while loading", async () => {
+    fetchMock.mockReturnValueOnce(new Promise(() => {}));
+    renderRoom();
+    const search = screen.getByRole("searchbox", { name: "Search notes" });
+    expect(search).toBeDisabled();
+    expect(
+      within(screen.getByRole("form", { name: "Reply in Chat Room A" })).queryByRole("searchbox"),
+    ).toBeNull();
   });
 
   it("picks a valid pen when storage holds junk", async () => {

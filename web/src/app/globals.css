@@ -778,6 +778,35 @@ body {
   font-size: 10px;
   color: #4a5570;
 }
+.pc-search {
+  display: flex;
+  gap: 6px;
+}
+.pc-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 2px solid var(--pc-blue);
+  border-radius: 3px;
+  background: #fff;
+  font: 11px/1 var(--font-ui);
+  color: var(--pc-ink);
+}
+.pc-search-input:focus {
+  outline: 2px solid var(--pc-ink);
+  outline-offset: 1px;
+}
+.pc-search-input::placeholder {
+  color: #8a94a8;
+}
+.pc-search-input:disabled {
+  background: #e9ecf3;
+}
+.pc-msg-text mark {
+  background: #f2d21b;
+  color: inherit;
+}
 /* `ol.` outranks the .raw ol rules above */
 ol.pc-log {
   display: flex;
