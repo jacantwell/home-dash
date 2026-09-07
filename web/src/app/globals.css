@@ -837,6 +837,10 @@ ol.pc-log {
   gap: 6px;
   align-items: stretch;
 }
+/* the form is a grid child of .pc-compose in all but name */
+.pc-compose-form {
+  display: contents;
+}
 .pc-pens {
   display: grid;
   grid-template-columns: repeat(2, 16px);

@@ -149,7 +149,6 @@ export function Comments({ slug, room }: Props) {
     }
   }
 
-  const canSend = Boolean(text.trim()) && !pending;
   const count = comments?.length ?? 0;
 
   return (
@@ -174,7 +173,7 @@ export function Comments({ slug, room }: Props) {
         ))}
       </ol>
 
-      <form className="pc-compose" onSubmit={onSubmit}>
+      <div className="pc-compose">
         <fieldset className="pc-pens">
           <legend className="sr-only">Pen colour</legend>
           {PEN_COLORS.map((pen) => (
@@ -191,37 +190,45 @@ export function Comments({ slug, room }: Props) {
           ))}
         </fieldset>
 
-        <textarea
-          ref={padRef}
-          className="pc-pad"
-          aria-label="Your note"
-          style={{ color, borderColor: color }}
-          value={text}
-          onChange={(e) => setText(capLines(e.target.value))}
-          onKeyDown={onPadKeyDown}
-          maxLength={MAX_COMMENT_LENGTH}
-          rows={3}
-          required
-          placeholder="write something..."
-        />
+        {/* pens sit outside the form so the form is just "write a note, post it" */}
+        <form
+          className="pc-compose-form"
+          aria-label={`Reply in Chat Room ${room}`}
+          onSubmit={onSubmit}
+        >
+          <textarea
+            ref={padRef}
+            className="pc-pad"
+            name="note"
+            aria-label="Your note"
+            style={{ color, borderColor: color }}
+            value={text}
+            onChange={(e) => setText(capLines(e.target.value))}
+            onKeyDown={onPadKeyDown}
+            maxLength={MAX_COMMENT_LENGTH}
+            rows={3}
+            required
+            placeholder="write something..."
+          />
 
-        <div className="pc-keys">
-          <button type="submit" className="pc-key" disabled={!canSend}>
-            {pending ? "Sending" : "Send"}
-          </button>
-          <button
-            type="button"
-            className="pc-key"
-            disabled={!text || pending}
-            onClick={() => {
-              setText("");
-              padRef.current?.focus();
-            }}
-          >
-            Clear
-          </button>
-        </div>
-      </form>
+          <div className="pc-keys">
+            <button type="submit" className="pc-key" disabled={pending}>
+              {pending ? "Posting" : "Post note"}
+            </button>
+            <button
+              type="button"
+              className="pc-key"
+              disabled={!text || pending}
+              onClick={() => {
+                setText("");
+                padRef.current?.focus();
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        </form>
+      </div>
 
       <div className="pc-status">
         <span>{comments === null ? "..." : `${count} note(s)`}</span>
