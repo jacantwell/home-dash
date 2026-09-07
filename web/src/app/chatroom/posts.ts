@@ -1,4 +1,4 @@
-// Posts are plain data: add one here and it shows up as a chat room on /blog.
+// Posts are plain data: add one here and it shows up as a chat room on /chatroom.
 // Slugs must match the api's pattern: lowercase, digits and single dashes.
 export interface Post {
   slug: string;
@@ -15,7 +15,7 @@ export const POSTS: readonly Post[] = [
     title: "hello, world",
     date: "2026-09-01",
     body: [
-      "This is the home-dash blog. It lives next to the LED board and the worm terms, and it works like PictoChat: pick a room, read the note, scribble a reply.",
+      "These are the home-dash chat rooms. They live next to the LED board and the worm terms, and they work like PictoChat: pick a room, read the note, scribble a reply.",
       "You don't need an account. Every reply is anonymous, and every reply is wiped after seven days, so say what you like as long as you can live with it for a week.",
       "Pick a pen colour. It's the only thing about you the page remembers, and it only remembers it in your own browser.",
     ],

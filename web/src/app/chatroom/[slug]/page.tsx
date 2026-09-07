@@ -11,13 +11,15 @@ export function generateStaticParams() {
   return POSTS.map((p) => ({ slug: p.slug }));
 }
 
-export async function generateMetadata({ params }: PageProps<"/blog/[slug]">): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps<"/chatroom/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const post = findPost(slug);
   return { title: post ? `${post.title} · home-dash` : "Not found · home-dash" };
 }
 
-export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
+export default async function PostPage({ params }: PageProps<"/chatroom/[slug]">) {
   const { slug } = await params;
   const post = findPost(slug);
   if (!post) notFound();
@@ -26,7 +28,7 @@ export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
   return (
     <main className="raw mx-auto w-full max-w-4xl flex-1 px-4 pb-8">
       <p className="hatnote">
-        <Link href="/blog">&larr; all rooms</Link>
+        <Link href="/chatroom">&larr; all rooms</Link>
       </p>
 
       <article>
@@ -44,7 +46,7 @@ export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
 
       <hr />
       <p>
-        <Link href="/blog">Index of /blog</Link> &middot; <Link href="/">Index of /</Link>
+        <Link href="/chatroom">Index of /chatroom</Link> &middot; <Link href="/">Index of /</Link>
       </p>
     </main>
   );
