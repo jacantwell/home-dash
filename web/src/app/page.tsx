@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PixelIcon } from "@/components/pixel-icon";
+import { formatApacheStamp } from "@/lib/time";
 
 // The landing is an Apache-style directory listing: one row per thing the house can do.
 const ENTRIES = [
@@ -29,14 +30,7 @@ const ENTRIES = [
 
 const NAME_WIDTH = 24;
 
-// Apache's `%d-%b-%Y %H:%M`.
-function apacheDate(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const month = d.toLocaleString("en-US", { month: "short" });
-  return `${pad(d.getDate())}-${month}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-const built = apacheDate(new Date());
+const built = formatApacheStamp(new Date());
 
 export default function Home() {
   return (
