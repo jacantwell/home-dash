@@ -177,36 +177,29 @@ export function Comments({ slug, room }: Props) {
   const searching = query.trim() !== "";
 
   return (
-    <div className="pc-chat">
-      <div className="pc-chat-title">
-        <span>Chat Room {room}</span>
-        <span className="pc-chat-note">
-          everyone is anon &middot; notes fade after {COMMENT_TTL_DAYS} days
-        </span>
-      </div>
+    <section aria-labelledby="replies">
+      <h2 id="replies">Chat Room {room}</h2>
+      <p className="pc-note-line">
+        Everyone is anon and every note fades after {COMMENT_TTL_DAYS} days.
+      </p>
 
-      <div className="pc-search" role="search">
+      <div role="search">
+        <label htmlFor="pc-search">Search notes</label>{" "}
         <input
+          id="pc-search"
           type="search"
-          className="pc-search-input"
           name="q"
-          aria-label="Search notes"
-          placeholder="search notes..."
+          size={24}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Escape") setQuery("");
           }}
           disabled={comments === null}
-        />
+        />{" "}
         {searching && (
-          <button
-            type="button"
-            className="pc-key"
-            aria-label="Clear search"
-            onClick={() => setQuery("")}
-          >
-            Clear
+          <button type="button" onClick={() => setQuery("")}>
+            Clear search
           </button>
         )}
       </div>
@@ -227,9 +220,10 @@ export function Comments({ slug, room }: Props) {
         ))}
       </ol>
 
-      <div className="pc-compose">
-        <fieldset className="pc-pens">
-          <legend className="sr-only">Pen colour</legend>
+      {/* the pens sit outside the form so the form is just "write a note, post it" */}
+      <fieldset className="pc-pens">
+        <legend>Pen colour</legend>
+        <div className="pc-pen-row">
           {PEN_COLORS.map((pen) => (
             <label key={pen} className="pc-pen" style={{ background: pen }}>
               <input
@@ -242,49 +236,44 @@ export function Comments({ slug, room }: Props) {
               />
             </label>
           ))}
-        </fieldset>
+        </div>
+      </fieldset>
 
-        {/* pens sit outside the form so the form is just "write a note, post it" */}
-        <form
-          className="pc-compose-form"
-          aria-label={`Reply in Chat Room ${room}`}
-          onSubmit={onSubmit}
-        >
-          <textarea
-            ref={padRef}
-            className="pc-pad"
-            name="note"
-            aria-label="Your note"
-            style={{ color, borderColor: color }}
-            value={text}
-            onChange={(e) => setText(capLines(e.target.value))}
-            onKeyDown={onPadKeyDown}
-            maxLength={MAX_COMMENT_LENGTH}
-            rows={3}
-            required
-            placeholder="write something..."
-          />
+      <form aria-label={`Reply in Chat Room ${room}`} onSubmit={onSubmit}>
+        <p>
+          <label htmlFor="pc-note">Your note</label>
+        </p>
+        <textarea
+          id="pc-note"
+          ref={padRef}
+          className="pc-pad"
+          name="note"
+          style={{ color, borderColor: color }}
+          value={text}
+          onChange={(e) => setText(capLines(e.target.value))}
+          onKeyDown={onPadKeyDown}
+          maxLength={MAX_COMMENT_LENGTH}
+          rows={3}
+          required
+        />
+        <p>
+          <button type="submit" disabled={pending}>
+            {pending ? "Posting" : "Post note"}
+          </button>{" "}
+          <button
+            type="button"
+            disabled={!text || pending}
+            onClick={() => {
+              setText("");
+              padRef.current?.focus();
+            }}
+          >
+            Clear
+          </button>
+        </p>
+      </form>
 
-          <div className="pc-keys">
-            <button type="submit" className="pc-key" disabled={pending}>
-              {pending ? "Posting" : "Post note"}
-            </button>
-            <button
-              type="button"
-              className="pc-key"
-              disabled={!text || pending}
-              onClick={() => {
-                setText("");
-                padRef.current?.focus();
-              }}
-            >
-              Clear
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <div className="pc-status">
+      <p className="pc-status">
         <span>
           {comments === null
             ? "..."
@@ -292,25 +281,29 @@ export function Comments({ slug, room }: Props) {
               ? `${shown?.length ?? 0} of ${count} note(s)`
               : `${count} note(s)`}
         </span>
-        {submitError && (
-          <span role="alert" className="pc-status-error">
-            {submitError}
-          </span>
-        )}
-        <span className="ml-auto" aria-live="polite">
+        {" · "}
+        <span aria-live="polite">
           {text.length}/{MAX_COMMENT_LENGTH}
         </span>
-      </div>
-    </div>
+        {submitError && (
+          <>
+            {" · "}
+            <span role="alert" className="pc-status-error">
+              {submitError}
+            </span>
+          </>
+        )}
+      </p>
+    </section>
   );
 }
 
 function Note({ comment, query }: { comment: Comment; query: string }) {
   return (
-    <li className="pc-msg" style={{ "--pen": comment.color } as React.CSSProperties}>
-      <span className="pc-tag">anon</span>
-      <p className="pc-msg-text">{highlight(comment.text, query)}</p>
-      <span className="pc-msg-time">
+    <li className="pc-note" style={{ "--pen": comment.color } as React.CSSProperties}>
+      <p className="pc-note-line">
+        <b>anon</b>
+        {" · "}
         <time dateTime={comment.created_at} title={formatAbsolute(comment.created_at)}>
           {formatRelative(comment.created_at)}
         </time>
@@ -318,7 +311,8 @@ function Note({ comment, query }: { comment: Comment; query: string }) {
         <span title={`fades ${formatAbsolute(comment.expires_at)}`}>
           fades {formatRelative(comment.expires_at)}
         </span>
-      </span>
+      </p>
+      <p className="pc-note-text">{highlight(comment.text, query)}</p>
     </li>
   );
 }

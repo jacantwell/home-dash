@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PixelIcon } from "@/components/pixel-icon";
+import { formatApacheDay } from "@/lib/time";
 
 import { findPost, POSTS, roomLetter } from "../posts";
 import { Comments } from "./comments";
@@ -29,29 +29,22 @@ export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
         <Link href="/blog">&larr; all rooms</Link>
       </p>
 
-      <div className="pc-ds">
-        <article className="pc-screen pc-top pc-post" aria-labelledby="post-title">
-          <div className="pc-logo" aria-hidden>
-            <PixelIcon name="pencil" size={18} />
-            <span>PictoChat</span>
-            <span className="pc-logo-room">Chat Room {letter}</span>
-          </div>
-          <h1 id="post-title">{post.title}</h1>
-          <p className="pc-date">
-            <time dateTime={post.date}>{post.date}</time>
-          </p>
-          {post.body.map((para, i) => (
-            <p key={i}>{para}</p>
-          ))}
-        </article>
-        <div className="pc-hinge" aria-hidden />
-        <div className="pc-screen pc-bottom">
-          <Comments slug={post.slug} room={letter} />
-        </div>
-      </div>
+      <article>
+        <h1>{post.title}</h1>
+        <p className="pc-note-line">
+          Chat Room {letter} &middot; <time dateTime={post.date}>{formatApacheDay(post.date)}</time>
+        </p>
+        <hr />
+        {post.body.map((para, i) => (
+          <p key={i}>{para}</p>
+        ))}
+      </article>
 
+      <Comments slug={post.slug} room={letter} />
+
+      <hr />
       <p>
-        <Link href="/blog">Blog</Link> &middot; <Link href="/">Index of /</Link>
+        <Link href="/blog">Index of /blog</Link> &middot; <Link href="/">Index of /</Link>
       </p>
     </main>
   );
