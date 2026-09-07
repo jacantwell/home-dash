@@ -13,3 +13,15 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at DESC);
+
+-- Anonymous blog comments. Rows older than 7 days are hidden on read and swept on the next insert,
+-- so nothing needs a cron.
+CREATE TABLE IF NOT EXISTS blog_comments (
+  id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  post_slug  text        NOT NULL,
+  color      text        NOT NULL,
+  text       text        NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS blog_comments_post_created_idx ON blog_comments (post_slug, created_at DESC);
