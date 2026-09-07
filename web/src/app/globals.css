@@ -578,3 +578,59 @@ body {
     animation-duration: 4s;
   }
 }
+
+/* ---------- raw html: running text (the wiki-ish terms page) ---------- */
+
+.raw h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 1em 0 0.3em;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #a2a9b1;
+}
+.raw p,
+.raw dl,
+.raw ol,
+.raw ul {
+  margin: 0.5em 0;
+}
+.raw ol,
+.raw ul {
+  padding-left: 2.5em;
+  list-style: decimal;
+}
+.raw ul {
+  list-style: disc;
+}
+.raw dd {
+  margin: 0.1em 0 0.5em 1.6em;
+}
+.raw dt {
+  font-weight: bold;
+}
+.raw sup {
+  font-size: 0.75em;
+  line-height: 0;
+  white-space: nowrap;
+}
+.raw .hatnote {
+  padding-left: 1.6em;
+  color: #333;
+  font-size: 0.9em;
+}
+.raw .toc {
+  display: inline-block;
+  margin: 0.5em 0 1em;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid #a2a9b1;
+  background: #f8f9fa;
+  font-size: 0.9em;
+}
+.raw .toc ol {
+  margin: 0.2em 0 0;
+  padding-left: 1.2em;
+  list-style: none;
+}
+.raw .references {
+  font-size: 0.9em;
+}
