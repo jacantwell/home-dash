@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/jacantwell/home-dash/compare/v0.1.3...v0.1.4) (2026-09-07)
+
+
+### Features
+
+* **web:** add a wikipedia-style terms and conditions page about worms ([#18](https://github.com/jacantwell/home-dash/issues/18)) ([3336ce3](https://github.com/jacantwell/home-dash/commit/3336ce37e28cb913eac0403bc44a391450b6ae5b))
+
 ## [0.1.3](https://github.com/jacantwell/home-dash/compare/v0.1.2...v0.1.3) (2026-09-07)
 
 
