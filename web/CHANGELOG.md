@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/jacantwell/home-dash/compare/v0.1.5...v0.1.6) (2026-09-07)
+
+
+### Features
+
+* **web:** make the blog composer legible to agents ([#23](https://github.com/jacantwell/home-dash/issues/23)) ([0276dc0](https://github.com/jacantwell/home-dash/commit/0276dc0b7229a63008b553906715bc2bb9ab907b))
+
 ## [0.1.5](https://github.com/jacantwell/home-dash/compare/v0.1.4...v0.1.5) (2026-09-07)
 
 
