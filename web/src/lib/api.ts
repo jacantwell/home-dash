@@ -18,7 +18,24 @@ export interface NewMessage {
   duration_s: number | null;
 }
 
+export interface Comment {
+  id: number;
+  post_slug: string;
+  color: string;
+  text: string;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface NewComment {
+  text: string;
+  color: string;
+}
+
 export const MAX_MESSAGE_LENGTH = 200;
+export const MAX_COMMENT_LENGTH = 200;
+export const MAX_COMMENT_LINES = 5;
+export const COMMENT_TTL_DAYS = 7;
 export const DEFAULT_COLOR = "#FF8C00";
 export const MIN_DURATION_S = 1;
 export const MAX_DURATION_S = 60;
@@ -61,16 +78,17 @@ function extractDetail(body: unknown, fallback: string): string {
   return fallback;
 }
 
+// `token` is null for the public (anonymous) routes.
 async function request<T>(
   path: string,
-  token: string,
+  token: string | null,
   init: RequestInit,
   fetchImpl: FetchLike = fetch,
 ): Promise<T> {
   const res = await fetchImpl(path, {
     ...init,
     headers: {
-      Authorization: `Bearer ${token}`,
+      ...(token === null ? {} : { Authorization: `Bearer ${token}` }),
       "content-type": "application/json",
       ...init.headers,
     },
@@ -105,6 +123,29 @@ export function sendMessage(
     "/api/messages",
     token,
     { method: "POST", body: JSON.stringify(message) },
+    fetchImpl,
+  );
+}
+
+export async function listComments(slug: string, fetchImpl?: FetchLike): Promise<Comment[]> {
+  const body = await request<{ comments: Comment[] }>(
+    `/api/blog/${encodeURIComponent(slug)}/comments`,
+    null,
+    { method: "GET" },
+    fetchImpl,
+  );
+  return body.comments;
+}
+
+export function postComment(
+  slug: string,
+  comment: NewComment,
+  fetchImpl?: FetchLike,
+): Promise<Comment> {
+  return request<Comment>(
+    `/api/blog/${encodeURIComponent(slug)}/comments`,
+    null,
+    { method: "POST", body: JSON.stringify(comment) },
     fetchImpl,
   );
 }

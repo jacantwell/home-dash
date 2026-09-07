@@ -3,10 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ApiError,
   clampDuration,
+  type Comment,
   DEFAULT_DURATION_S,
   formatDuration,
+  listComments,
   listMessages,
   type Message,
+  postComment,
   sendMessage,
 } from "./api";
 
@@ -113,5 +116,60 @@ describe("formatDuration", () => {
     [90, "90s"],
   ])("formats %i as %s", (seconds, expected) => {
     expect(formatDuration(seconds)).toBe(expected);
+  });
+});
+
+const comment: Comment = {
+  id: 7,
+  post_slug: "hello-world",
+  color: "#e0281e",
+  text: "first",
+  created_at: "2026-09-06T12:00:00Z",
+  expires_at: "2026-09-13T12:00:00Z",
+};
+
+describe("listComments", () => {
+  it("fetches the post's comments without any auth header", async () => {
+    const fetchImpl = fakeFetch(200, { comments: [comment] });
+    const result = await listComments("hello-world", fetchImpl);
+
+    expect(result).toEqual([comment]);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("/api/blog/hello-world/comments");
+    expect(init?.method).toBe("GET");
+    expect(init?.headers).not.toHaveProperty("Authorization");
+  });
+
+  it("url-encodes the slug", async () => {
+    const fetchImpl = fakeFetch(200, { comments: [] });
+    await listComments("a b/c", fetchImpl);
+    expect(fetchImpl.mock.calls[0][0]).toBe("/api/blog/a%20b%2Fc/comments");
+  });
+});
+
+describe("postComment", () => {
+  it("posts text and colour and returns the created comment", async () => {
+    const fetchImpl = fakeFetch(201, comment);
+    const result = await postComment("hello-world", { text: "first", color: "#e0281e" }, fetchImpl);
+
+    expect(result).toEqual(comment);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("/api/blog/hello-world/comments");
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).not.toHaveProperty("Authorization");
+    expect(JSON.parse(String(init?.body))).toEqual({ text: "first", color: "#e0281e" });
+  });
+
+  it.each([
+    [422, { detail: [{ msg: "text must not be empty" }] }, "text must not be empty"],
+    [503, { detail: "DATABASE_URL is not configured" }, "DATABASE_URL is not configured"],
+    [500, "nope", "Request failed (500)"],
+  ])("throws ApiError with detail on %i", async (status, body, expected) => {
+    const fetchImpl = vi.fn<typeof fetch>(
+      async () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status }),
+    );
+    await expect(postComment("x", { text: "hi", color: "#000000" }, fetchImpl)).rejects.toThrow(
+      expected,
+    );
   });
 });
