@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.7](https://github.com/jacantwell/home-dash/compare/v0.1.6...v0.1.7) (2026-09-07)
+
+
+### Features
+
+* **web:** search the notes in a blog post's chat room ([#27](https://github.com/jacantwell/home-dash/issues/27)) ([62a8312](https://github.com/jacantwell/home-dash/commit/62a8312d90340cb17f89b44cdd20811b6052baa3))
+
+
+### Performance
+
+* prerender the blog and run functions in lhr1 ([#25](https://github.com/jacantwell/home-dash/issues/25)) ([72c85fe](https://github.com/jacantwell/home-dash/commit/72c85feb288b3af9ad74e424b495624bb807c180))
+
 ## [0.1.6](https://github.com/jacantwell/home-dash/compare/v0.1.5...v0.1.6) (2026-09-07)
 
 
