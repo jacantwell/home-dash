@@ -10,7 +10,7 @@ from api.config import Settings
 from api.db import Message, MessageRepo, get_repo
 
 TEXT_MAX = 200
-DURATION_MAX_S = 300
+DURATION_MAX_S = 60
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 

@@ -113,7 +113,7 @@ def test_unconfigured_auth_is_503(settings: Settings) -> None:
         pytest.param({"text": "hi", "color": "ff00ff"}, id="color-no-hash"),
         pytest.param({"text": "hi", "duration_s": 0}, id="duration-zero"),
         pytest.param({"text": "hi", "duration_s": -5}, id="duration-negative"),
-        pytest.param({"text": "hi", "duration_s": 301}, id="duration-over-max"),
+        pytest.param({"text": "hi", "duration_s": 61}, id="duration-over-max"),
         pytest.param({"text": "hi", "duration_s": 2.5}, id="duration-fractional"),
         pytest.param({"text": "hi", "duration_s": "ten"}, id="duration-not-a-number"),
     ],
@@ -165,7 +165,7 @@ def test_post_normalises_color(
     assert response.json()["color"] == expected
 
 
-@pytest.mark.parametrize("duration", [None, 1, 30, 300])
+@pytest.mark.parametrize("duration", [None, 1, 30, 60])
 def test_post_stores_and_forwards_duration(
     client: TestClient,
     auth: dict[str, str],

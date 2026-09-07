@@ -90,11 +90,11 @@ describe("clampDuration", () => {
   it.each([
     [10, 10],
     [1, 1],
-    [300, 300],
+    [60, 60],
     [0, 1],
     [-4, 1],
-    [301, 300],
-    [99999, 300],
+    [61, 60],
+    [99999, 60],
     [12.6, 13],
     [Number.NaN, DEFAULT_DURATION_S],
     [Number.POSITIVE_INFINITY, DEFAULT_DURATION_S],
@@ -109,6 +109,7 @@ describe("formatDuration", () => {
     [45, "45s"],
     [60, "1m"],
     [300, "5m"],
+    [120, "2m"],
     [90, "90s"],
   ])("formats %i as %s", (seconds, expected) => {
     expect(formatDuration(seconds)).toBe(expected);

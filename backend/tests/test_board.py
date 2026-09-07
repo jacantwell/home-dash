@@ -21,7 +21,7 @@ def test_send_ok(settings: Settings, status: int) -> None:
     assert route.calls.last.request.read() == b'{"text":"hi","color":null,"duration_s":null}'
 
 
-@pytest.mark.parametrize("duration", [1, 30, 300])
+@pytest.mark.parametrize("duration", [1, 30, 60])
 @respx.mock
 def test_send_forwards_duration(settings: Settings, duration: int) -> None:
     route = respx.post("http://ledboard.test/text").respond(202)
