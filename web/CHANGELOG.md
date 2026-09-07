@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/jacantwell/home-dash/compare/v0.1.7...v0.1.8) (2026-09-07)
+
+
+### Features
+
+* **web:** redraw the blog as raw html instead of a DS ([#28](https://github.com/jacantwell/home-dash/issues/28)) ([dfc46f9](https://github.com/jacantwell/home-dash/commit/dfc46f9d9c2313c57ea5955364ba0cb1c9cc3e7a))
+
 ## [0.1.7](https://github.com/jacantwell/home-dash/compare/v0.1.6...v0.1.7) (2026-09-07)
 
 
