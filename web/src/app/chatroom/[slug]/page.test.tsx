@@ -29,7 +29,7 @@ describe("Post page", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(title);
     for (const para of body) expect(screen.getByText(para)).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Your note" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /all rooms/ })).toHaveAttribute("href", "/blog");
+    expect(screen.getByRole("link", { name: /all rooms/ })).toHaveAttribute("href", "/chatroom");
   });
 
   it("404s for an unknown slug", async () => {

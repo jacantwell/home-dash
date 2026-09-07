@@ -13,8 +13,8 @@ const ENTRIES = [
     description: "Send a message to the LED board",
   },
   {
-    href: "/blog",
-    name: "blog/",
+    href: "/chatroom",
+    name: "chatroom/",
     icon: "folder",
     size: "-",
     description: "Notes from the house; reply anonymously, PictoChat style",

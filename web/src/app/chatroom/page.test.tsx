@@ -10,10 +10,10 @@ function rooms() {
   return screen.getByRole("table", { name: "Chat rooms" });
 }
 
-describe("Blog page", () => {
+describe("Chat room index", () => {
   it("renders the heading and a room table", () => {
     render(<Page />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Index of /blog");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Index of /chatroom");
     expect(rooms()).toBeInTheDocument();
     expect(screen.getByText(/wiped after seven days/i)).toBeInTheDocument();
     expect(screen.getByText(/please select a chat room/i)).toBeInTheDocument();
@@ -24,7 +24,7 @@ describe("Blog page", () => {
     const row = within(rooms()).getByRole("link", { name: post.slug }).closest("tr")!;
     expect(within(row).getByRole("link", { name: post.slug })).toHaveAttribute(
       "href",
-      `/blog/${post.slug}`,
+      `/chatroom/${post.slug}`,
     );
     expect(row).toHaveTextContent(`[${roomLetter(post)}]`);
     expect(row).toHaveTextContent(post.title);

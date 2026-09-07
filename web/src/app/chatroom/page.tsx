@@ -7,14 +7,14 @@ import { formatApacheDay } from "@/lib/time";
 import { POSTS_NEWEST_FIRST, roomLetter } from "./posts";
 
 export const metadata: Metadata = {
-  title: "Blog · home-dash",
+  title: "Chat rooms · home-dash",
   description: "Notes from the house. Anyone can reply; replies vanish after seven days.",
 };
 
-export default function BlogPage() {
+export default function ChatroomPage() {
   return (
     <main className="raw mx-auto w-full max-w-4xl flex-1 px-4 pb-8">
-      <h1>Index of /blog</h1>
+      <h1>Index of /chatroom</h1>
       <p>
         One post per chat room. Replies are anonymous and are wiped after seven days, so nothing
         here is forever.
@@ -38,7 +38,7 @@ export default function BlogPage() {
               <td className="pc-letter">[{roomLetter(post)}]</td>
               <td>
                 <PixelIcon name="pencil" size={16} label="note" />{" "}
-                <Link href={`/blog/${post.slug}`}>{post.slug}</Link>
+                <Link href={`/chatroom/${post.slug}`}>{post.slug}</Link>
               </td>
               <td>
                 <time dateTime={post.date}>{formatApacheDay(post.date)}</time>

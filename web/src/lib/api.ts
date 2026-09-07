@@ -129,7 +129,7 @@ export function sendMessage(
 
 export async function listComments(slug: string, fetchImpl?: FetchLike): Promise<Comment[]> {
   const body = await request<{ comments: Comment[] }>(
-    `/api/blog/${encodeURIComponent(slug)}/comments`,
+    `/api/chatroom/${encodeURIComponent(slug)}/comments`,
     null,
     { method: "GET" },
     fetchImpl,
@@ -143,7 +143,7 @@ export function postComment(
   fetchImpl?: FetchLike,
 ): Promise<Comment> {
   return request<Comment>(
-    `/api/blog/${encodeURIComponent(slug)}/comments`,
+    `/api/chatroom/${encodeURIComponent(slug)}/comments`,
     null,
     { method: "POST", body: JSON.stringify(comment) },
     fetchImpl,

@@ -89,7 +89,7 @@ describe("Comments", () => {
     expect(note).toHaveTextContent(/fades in 7 days/);
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("/api/blog/hello-world/comments");
+    expect(url).toBe("/api/chatroom/hello-world/comments");
     expect(init?.headers).not.toHaveProperty("Authorization");
     expect(screen.getByText("1 note(s)")).toBeInTheDocument();
   });

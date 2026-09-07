@@ -9,7 +9,7 @@ from api.comments import COMMENT_TTL, Comment, get_comment_repo
 from api.config import Settings
 from tests.fakes import InMemoryCommentRepo
 
-URL = "/api/blog/hello-world/comments"
+URL = "/api/chatroom/hello-world/comments"
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def test_unconfigured_auth_does_not_block_comments(settings: Settings) -> None:
 
 @pytest.mark.parametrize("slug", ["a", "hello-world", "post-2", "0"])
 def test_slug_accepted(client: TestClient, slug: str) -> None:
-    assert client.get(f"/api/blog/{slug}/comments").status_code == 200
+    assert client.get(f"/api/chatroom/{slug}/comments").status_code == 200
 
 
 @pytest.mark.parametrize(
@@ -61,9 +61,9 @@ def test_slug_accepted(client: TestClient, slug: str) -> None:
     ],
 )
 def test_slug_rejected(client: TestClient, repo: InMemoryCommentRepo, slug: str) -> None:
-    assert client.get(f"/api/blog/{slug}/comments").status_code == 422
+    assert client.get(f"/api/chatroom/{slug}/comments").status_code == 422
     body = {"text": "hi", "color": "#ff0000"}
-    assert client.post(f"/api/blog/{slug}/comments", json=body).status_code == 422
+    assert client.post(f"/api/chatroom/{slug}/comments", json=body).status_code == 422
     assert repo.rows == []
 
 

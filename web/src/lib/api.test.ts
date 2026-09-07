@@ -135,7 +135,7 @@ describe("listComments", () => {
 
     expect(result).toEqual([comment]);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe("/api/blog/hello-world/comments");
+    expect(url).toBe("/api/chatroom/hello-world/comments");
     expect(init?.method).toBe("GET");
     expect(init?.headers).not.toHaveProperty("Authorization");
   });
@@ -143,7 +143,7 @@ describe("listComments", () => {
   it("url-encodes the slug", async () => {
     const fetchImpl = fakeFetch(200, { comments: [] });
     await listComments("a b/c", fetchImpl);
-    expect(fetchImpl.mock.calls[0][0]).toBe("/api/blog/a%20b%2Fc/comments");
+    expect(fetchImpl.mock.calls[0][0]).toBe("/api/chatroom/a%20b%2Fc/comments");
   });
 });
 
@@ -154,7 +154,7 @@ describe("postComment", () => {
 
     expect(result).toEqual(comment);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe("/api/blog/hello-world/comments");
+    expect(url).toBe("/api/chatroom/hello-world/comments");
     expect(init?.method).toBe("POST");
     expect(init?.headers).not.toHaveProperty("Authorization");
     expect(JSON.parse(String(init?.body))).toEqual({ text: "first", color: "#e0281e" });
