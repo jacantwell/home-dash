@@ -1,32 +1,45 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { formatApacheDay } from "@/lib/time";
+
 import Page from "./page";
 import { POSTS, roomLetter } from "./posts";
 
+function rooms() {
+  return screen.getByRole("table", { name: "Chat rooms" });
+}
+
 describe("Blog page", () => {
-  it("renders the heading and a room list", () => {
+  it("renders the heading and a room table", () => {
     render(<Page />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Blog");
-    expect(screen.getByRole("navigation", { name: "Chat rooms" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Index of /blog");
+    expect(rooms()).toBeInTheDocument();
     expect(screen.getByText(/wiped after seven days/i)).toBeInTheDocument();
+    expect(screen.getByText(/please select a chat room/i)).toBeInTheDocument();
   });
 
   it.each(POSTS)("lists $title as chat room $slug", (post) => {
     render(<Page />);
-    const rooms = screen.getByRole("navigation", { name: "Chat rooms" });
-    const link = within(rooms).getByRole("link", { name: new RegExp(post.title) });
-    expect(link).toHaveAttribute("href", `/blog/${post.slug}`);
-    expect(link).toHaveTextContent(`Chat Room ${roomLetter(post)}`);
-    expect(link).toHaveTextContent(post.date);
+    const row = within(rooms()).getByRole("link", { name: post.slug }).closest("tr")!;
+    expect(within(row).getByRole("link", { name: post.slug })).toHaveAttribute(
+      "href",
+      `/blog/${post.slug}`,
+    );
+    expect(row).toHaveTextContent(`[${roomLetter(post)}]`);
+    expect(row).toHaveTextContent(post.title);
+    expect(within(row).getByText(formatApacheDay(post.date))).toHaveAttribute(
+      "dateTime",
+      post.date,
+    );
   });
 
   it("orders rooms newest first", () => {
     render(<Page />);
-    const rooms = screen.getByRole("navigation", { name: "Chat rooms" });
-    const dates = within(rooms)
-      .getAllByRole("link")
-      .map((a) => a.querySelector("time")?.getAttribute("dateTime"));
+    const dates = [...rooms().querySelectorAll("tbody time")].map((t) =>
+      t.getAttribute("dateTime"),
+    );
+    expect(dates).toHaveLength(POSTS.length);
     expect(dates).toEqual([...dates].sort().reverse());
   });
 });
