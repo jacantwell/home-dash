@@ -634,3 +634,317 @@ body {
 .raw .references {
   font-size: 0.9em;
 }
+
+/* ---------- pictochat (the blog) ---------- */
+
+/* A DS lid: two screens, a hinge, plastic around it. Light-only like everything else. */
+.pc-ds {
+  --pc-plastic: #cfd3da;
+  --pc-plastic-dark: #9ea4ae;
+  --pc-ink: #2a3140;
+  --pc-blue: #3b5fc0;
+  --pc-screen: #eef2f9;
+  --pc-grid: #c9d3e6;
+  --pc-line: #dbe3f2;
+  margin: 1em 0;
+  padding: 12px;
+  border: 1px solid var(--pc-plastic-dark);
+  border-radius: 14px;
+  background: var(--pc-plastic);
+  box-shadow:
+    inset 1px 1px #fff,
+    inset -1px -1px var(--pc-plastic-dark);
+  font: 12px/1.45 var(--font-ui);
+  color: var(--pc-ink);
+}
+.pc-screen {
+  padding: 10px 12px;
+  border: 3px solid #23262e;
+  border-radius: 3px;
+  background:
+    radial-gradient(var(--pc-grid) 0.8px, transparent 0.8px) 0 0 / 8px 8px,
+    var(--pc-screen);
+}
+.pc-hinge {
+  height: 12px;
+  margin: 6px -12px;
+  background: linear-gradient(var(--pc-plastic-dark), #7f858f 40%, var(--pc-plastic-dark));
+}
+.pc-logo {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  font: bold 15px/1 var(--font-title);
+  color: var(--pc-blue);
+  letter-spacing: 0.02em;
+  text-shadow: 1px 1px #fff;
+}
+.pc-logo-room {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--pc-ink);
+  text-shadow: none;
+}
+.pc-hint {
+  margin: 0;
+  text-align: center;
+  color: #4a5570;
+}
+
+/* post: running text on the top screen */
+.pc-post h1 {
+  margin: 0.2em 0 0;
+  font: bold 1.6em/1.2 var(--font-title);
+  color: var(--pc-blue);
+}
+.pc-post .pc-date {
+  margin: 0 0 0.6em;
+  color: #4a5570;
+  font-size: 11px;
+}
+.pc-post p {
+  margin: 0.5em 0;
+  max-width: 62ch;
+}
+
+/* room select */
+.pc-rooms {
+  display: grid;
+  gap: 6px;
+}
+.pc-room {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 5px;
+  border: 2px solid #7a8db8;
+  border-radius: 5px;
+  background: #fff;
+  color: var(--pc-ink) !important;
+  text-decoration: none !important;
+}
+.pc-room:hover,
+.pc-room:focus-visible {
+  background: #dfe8fb;
+  outline: none;
+  border-color: var(--pc-blue);
+}
+.pc-room-letter {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--pc-blue);
+  color: #fff;
+  font: bold 15px/1 var(--font-title);
+}
+.pc-room-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pc-room-name {
+  font-weight: bold;
+}
+.pc-room-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #4a5570;
+}
+.pc-room-meta {
+  font-size: 10px;
+  color: #4a5570;
+}
+
+/* chat */
+.pc-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pc-chat-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: bold;
+}
+.pc-chat-note {
+  font-weight: normal;
+  font-size: 10px;
+  color: #4a5570;
+}
+/* `ol.` outranks the .raw ol rules above */
+ol.pc-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 22rem;
+  margin: 0;
+  padding: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+.pc-empty {
+  padding: 18px 0;
+  text-align: center;
+  color: #4a5570;
+}
+.pc-msg {
+  --pen: var(--pc-blue);
+  position: relative;
+  border: 2px solid var(--pen);
+  border-radius: 6px;
+  background: #fff;
+}
+.pc-tag {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  padding: 1px 7px 2px;
+  border-radius: 6px 0 6px 0;
+  background: var(--pen);
+  color: #fff;
+  font: bold 10px/1.2 var(--font-ui);
+  text-transform: lowercase;
+}
+.pc-msg-text {
+  margin: 0;
+  padding: 2px 8px 0 46px;
+  min-height: 32px;
+  font-size: 13px;
+  line-height: 16px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  background: repeating-linear-gradient(transparent 0 15px, var(--pc-line) 15px 16px) 0 2px;
+}
+.pc-msg-time {
+  display: block;
+  padding: 1px 8px 2px;
+  font-size: 10px;
+  color: #4a5570;
+  text-align: right;
+}
+
+/* compose: pens on the left, the pad, then the keys */
+.pc-compose {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px;
+  align-items: stretch;
+}
+.pc-pens {
+  display: grid;
+  grid-template-columns: repeat(2, 16px);
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid var(--pc-plastic-dark);
+  border-radius: 3px;
+  background: #fff;
+}
+.pc-pen {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.pc-pen input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.pc-pen:has(input:checked) {
+  outline: 2px solid #fff;
+  outline-offset: -3px;
+  box-shadow: 0 0 0 1px #000;
+}
+.pc-pen:has(input:focus-visible) {
+  box-shadow: 0 0 0 2px var(--pc-blue);
+}
+.pc-pad {
+  display: block;
+  width: 100%;
+  min-height: 84px;
+  padding: 6px 8px;
+  border: 2px solid var(--pc-blue);
+  border-radius: 3px;
+  background:
+    radial-gradient(#b9c4dc 0.8px, transparent 0.8px) 0 0 / 8px 8px,
+    #fff;
+  font: 13px/16px var(--font-ui);
+  resize: none;
+}
+.pc-pad:focus {
+  outline: 2px solid var(--pc-ink);
+  outline-offset: 1px;
+}
+.pc-pad::placeholder {
+  color: #8a94a8;
+}
+.pc-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pc-key {
+  min-width: 58px;
+  padding: 0 10px;
+  height: 26px;
+  border: 1px solid #5a6b93;
+  border-radius: 3px;
+  background: linear-gradient(#fbfcfe, #cfd6e6);
+  font: bold 11px/1 var(--font-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pc-ink);
+  cursor: pointer;
+}
+.pc-key:hover:not(:disabled) {
+  background: linear-gradient(#fff, #dfe8fb);
+  border-color: var(--pc-blue);
+}
+.pc-key:active:not(:disabled) {
+  background: #cfd6e6;
+}
+.pc-key:focus-visible {
+  outline: 2px solid var(--pc-ink);
+  outline-offset: 1px;
+}
+.pc-key:disabled {
+  color: #8a94a8;
+  cursor: default;
+  background: #e9ecf3;
+}
+.pc-status {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: #4a5570;
+}
+.pc-status-error {
+  color: #b3261e;
+}
+
+@media (max-width: 480px) {
+  .pc-compose {
+    grid-template-columns: 1fr;
+  }
+  .pc-pens {
+    grid-template-columns: repeat(8, 16px);
+    justify-content: start;
+  }
+  .pc-keys {
+    flex-direction: row;
+  }
+}
