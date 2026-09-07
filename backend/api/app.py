@@ -124,7 +124,7 @@ def create_app(settings: Settings, verifier: ClerkVerifier | None = None) -> Fas
         return message
 
     # anonymous, no auth: comments vanish after COMMENT_TTL
-    @app.get("/api/blog/{slug}/comments", response_model=CommentList)
+    @app.get("/api/chatroom/{slug}/comments", response_model=CommentList)
     def list_comments(
         slug: Annotated[str, Path(pattern=SLUG_PATTERN, max_length=64)],
         repo: Annotated[CommentRepo, Depends(get_comment_repo)],
@@ -133,7 +133,7 @@ def create_app(settings: Settings, verifier: ClerkVerifier | None = None) -> Fas
         return CommentList(comments=repo.list(slug, limit))
 
     @app.post(
-        "/api/blog/{slug}/comments",
+        "/api/chatroom/{slug}/comments",
         response_model=Comment,
         status_code=status.HTTP_201_CREATED,
     )

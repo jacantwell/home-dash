@@ -33,13 +33,13 @@ Without an issuer the service still boots (`/api/healthz` works) and protected r
 
 ## Endpoints
 
-| Method | Path                                  | Auth | Response                                           |
-| ------ | ------------------------------------- | ---- | -------------------------------------------------- |
-| GET    | `/api/healthz`                        | no   | `200 {"ok": true}`                                 |
-| GET    | `/api/messages?limit=20`              | yes  | `200 {"messages": [Message]}` newest first, 1..100 |
-| POST   | `/api/messages`                       | yes  | `202 Message`; `429` passthrough if the Pi says so |
-| GET    | `/api/blog/{slug}/comments?limit=100` | no   | `200 {"comments": [Comment]}` oldest first, 1..200 |
-| POST   | `/api/blog/{slug}/comments`           | no   | `201 Comment`                                      |
+| Method | Path                                      | Auth | Response                                           |
+| ------ | ----------------------------------------- | ---- | -------------------------------------------------- |
+| GET    | `/api/healthz`                            | no   | `200 {"ok": true}`                                 |
+| GET    | `/api/messages?limit=20`                  | yes  | `200 {"messages": [Message]}` newest first, 1..100 |
+| POST   | `/api/messages`                           | yes  | `202 Message`; `429` passthrough if the Pi says so |
+| GET    | `/api/chatroom/{slug}/comments?limit=100` | no   | `200 {"comments": [Comment]}` oldest first, 1..200 |
+| POST   | `/api/chatroom/{slug}/comments`           | no   | `201 Comment`                                      |
 
 POST body: `{"text": "1..200 chars after trim", "color": "#rrggbb" | null, "duration_s": 1..60 | null}`.
 `duration_s` is how many seconds the board shows it for (scrolling text loops until it elapses);
@@ -54,7 +54,7 @@ Message = {id, text, color, duration_s, status, error, sender_name, created_at}
 Auth: `Authorization: Bearer <clerk session token>`. RS256 via the issuer's JWKS, `exp`/`iat`/`sub`
 required, 5s leeway, `azp` must be in `CLERK_AUTHORIZED_PARTIES` when set. Failures are `401`.
 
-### Blog comments
+### Chat room comments
 
 Anonymous, no auth. `slug` matches `^[a-z0-9]+(?:-[a-z0-9]+)*$`, max 64. POST body:
 `{"text": "1..200 chars, up to 5 lines", "color": "#rrggbb"}`. Nothing identifying is stored.
@@ -65,4 +65,5 @@ Comment = {id, post_slug, color, text, created_at, expires_at}
 ```
 
 The `messages` and `blog_comments` tables already exist in Neon; `schema.sql` is a reference copy,
-nothing migrates.
+nothing migrates. `blog_comments` keeps its name because renaming it would need a migration the
+service does not run.
