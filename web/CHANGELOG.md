@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/jacantwell/home-dash/compare/v0.1.8...v0.2.0) (2026-09-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* `/api/blog/{slug}/comments` is gone; use `/api/chatroom/{slug}/comments`. The `/blog` pages redirect, the API path does not.
+
+### Features
+
+* rename the blog to chatroom ([#30](https://github.com/jacantwell/home-dash/issues/30)) ([2f54d69](https://github.com/jacantwell/home-dash/commit/2f54d693603c0d09c33ca63b0463dfe7200d53e1))
+
 ## [0.1.8](https://github.com/jacantwell/home-dash/compare/v0.1.7...v0.1.8) (2026-09-07)
 
 
