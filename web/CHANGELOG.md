@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/jacantwell/home-dash/compare/v0.2.0...v0.2.1) (2026-09-08)
+
+
+### Features
+
+* **etch:** add etch-a-sketch page and board proxy ([#32](https://github.com/jacantwell/home-dash/issues/32)) ([c1a672a](https://github.com/jacantwell/home-dash/commit/c1a672a494251c671c62758b0494c5d5a41040f2))
+
 ## [0.2.0](https://github.com/jacantwell/home-dash/compare/v0.1.8...v0.2.0) (2026-09-07)
 
 
