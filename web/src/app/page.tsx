@@ -13,6 +13,13 @@ const ENTRIES = [
     description: "Send a message to the LED board",
   },
   {
+    href: "/etch",
+    name: "etch/",
+    icon: "folder",
+    size: "-",
+    description: "Draw on the LED board, Etch-A-Sketch style",
+  },
+  {
     href: "/chatroom",
     name: "chatroom/",
     icon: "folder",

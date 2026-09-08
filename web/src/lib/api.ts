@@ -32,6 +32,27 @@ export interface NewComment {
   color: string;
 }
 
+// Etch-a-sketch state mirrors the ledboard contract: pixels_b64 is the sketch
+// buffer as packed bits (row-major), base64. The backend proxies /api/etch/*
+// to the Pi with the caller's token.
+export interface EtchState {
+  w: number;
+  h: number;
+  x: number;
+  y: number;
+  lit: number;
+  pixels_b64: string;
+}
+
+export interface EtchCursor {
+  x: number;
+  y: number;
+}
+
+export interface EtchCleared extends EtchCursor {
+  cleared: boolean;
+}
+
 export const MAX_MESSAGE_LENGTH = 200;
 export const MAX_COMMENT_LENGTH = 200;
 export const MAX_COMMENT_LINES = 5;
@@ -148,4 +169,26 @@ export function postComment(
     { method: "POST", body: JSON.stringify(comment) },
     fetchImpl,
   );
+}
+
+export function getEtchState(token: string, fetchImpl?: FetchLike): Promise<EtchState> {
+  return request<EtchState>("/api/etch", token, { method: "GET" }, fetchImpl);
+}
+
+export function etchMove(
+  token: string,
+  dx: number,
+  dy: number,
+  fetchImpl?: FetchLike,
+): Promise<EtchCursor> {
+  return request<EtchCursor>(
+    "/api/etch/move",
+    token,
+    { method: "POST", body: JSON.stringify({ dx, dy }) },
+    fetchImpl,
+  );
+}
+
+export function etchClear(token: string, fetchImpl?: FetchLike): Promise<EtchCleared> {
+  return request<EtchCleared>("/api/etch/clear", token, { method: "POST" }, fetchImpl);
 }
