@@ -38,7 +38,9 @@ Clerk handles sign-in. `web/src/proxy.ts` (Next 16's middleware) runs `clerkMidd
 request so `auth()` works in server components; it does not protect paths itself. `/board`
 checks `auth()` and shows a sign-in prompt when logged out. The client fetches `/api/*` with
 the Clerk session token as `Authorization: Bearer <token>`, and the backend verifies it and
-forwards the same token to the ledboard.
+forwards the same token to the ledboard. `/etch` is the exception: no sign-in needed, but the
+backend only accepts calls from the home-dash frontend (request `Origin`/`Referer` must be in
+`CLERK_AUTHORIZED_PARTIES`).
 
 ## Scripts
 

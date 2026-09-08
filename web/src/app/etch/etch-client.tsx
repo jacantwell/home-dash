@@ -1,6 +1,5 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -55,15 +54,10 @@ function inkLine(
 }
 
 export function EtchClient() {
-  const { getToken } = useAuth();
-  return <Etch getToken={getToken} />;
+  return <Etch />;
 }
 
-interface EtchProps {
-  getToken: () => Promise<string | null>;
-}
-
-export function Etch({ getToken }: EtchProps) {
+export function Etch() {
   const [etch, setEtch] = useState<EtchState | null>(null);
   const [bits, setBits] = useState<Uint8Array | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,44 +70,34 @@ export function Etch({ getToken }: EtchProps) {
   const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const loaded = useRef(false);
 
-  const requireToken = useCallback(async () => {
-    const token = await getToken();
-    if (!token) throw new ApiError(401, "Your session expired. Sign in again.");
-    return token;
-  }, [getToken]);
-
   function say(text: string) {
     setNotice(text);
     clearTimeout(noticeTimer.current);
     noticeTimer.current = setTimeout(() => setNotice(null), 2600);
   }
 
-  const load = useCallback(
-    (quiet: boolean) => {
-      let cancelled = false;
-      (async () => {
-        try {
-          const token = await requireToken();
-          const st = await getEtchState(token);
-          if (cancelled) return;
-          loaded.current = true;
-          setEtch(st);
-          setBits(decodeBits(st));
-          setLoadError(null);
-        } catch (err) {
-          if (cancelled) return;
-          if (quiet && loaded.current) return; // keep drawing on a blip, the next poll retries
-          setLoadError(errorMessage(err));
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    },
-    [requireToken],
-  );
+  const load = useCallback((quiet: boolean) => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const st = await getEtchState();
+        if (cancelled) return;
+        loaded.current = true;
+        setEtch(st);
+        setBits(decodeBits(st));
+        setLoadError(null);
+      } catch (err) {
+        if (cancelled) return;
+        if (quiet && loaded.current) return; // keep drawing on a blip, the next poll retries
+        setLoadError(errorMessage(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => load(false), [load]);
   useEffect(() => {
@@ -150,8 +134,7 @@ export function Etch({ getToken }: EtchProps) {
     setBits(next);
     setEtch({ ...etch, x: nx, y: ny, lit: next.reduce((a, b) => a + b, 0) });
     try {
-      const token = await requireToken();
-      const cursor = await etchMove(token, dx, dy);
+      const cursor = await etchMove(dx, dy);
       setEtch((prev) => (prev ? { ...prev, x: cursor.x, y: cursor.y } : prev));
     } catch (err) {
       setOpError(errorMessage(err));
@@ -173,8 +156,7 @@ export function Etch({ getToken }: EtchProps) {
     if (shaking) return;
     setShaking(true);
     try {
-      const token = await requireToken();
-      await etchClear(token);
+      await etchClear();
       say(why);
       load(true);
     } catch (err) {

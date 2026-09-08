@@ -1,4 +1,3 @@
-import { useAuth } from "@clerk/nextjs";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,20 +21,12 @@ function jsonResponse(status: number, body: unknown) {
 }
 
 const fetchMock = vi.fn<typeof fetch>();
-const getToken = vi.fn(async () => "test-token");
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
-  vi.mocked(useAuth).mockReturnValue({
-    isLoaded: true,
-    isSignedIn: true,
-    userId: "user_test",
-    getToken,
-  } as unknown as ReturnType<typeof useAuth>);
   // jsdom has no canvas 2d context; the component guards a null context.
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   fetchMock.mockReset();
-  getToken.mockClear();
 });
 
 afterEach(() => {
@@ -44,7 +35,7 @@ afterEach(() => {
 });
 
 describe("EtchClient", () => {
-  it("loads the sketch with the bearer token and shows the cursor", async () => {
+  it("loads the sketch without any auth and shows the cursor", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, state));
     render(<EtchClient />);
 
@@ -53,7 +44,7 @@ describe("EtchClient", () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/etch");
-    expect(init?.headers).toMatchObject({ Authorization: "Bearer test-token" });
+    expect(init?.headers).not.toHaveProperty("Authorization");
   });
 
   it("turning the left knob with the wheel draws horizontally", async () => {

@@ -34,7 +34,8 @@ export interface NewComment {
 
 // Etch-a-sketch state mirrors the ledboard contract: pixels_b64 is the sketch
 // buffer as packed bits (row-major), base64. The backend proxies /api/etch/*
-// to the Pi with the caller's token.
+// to the Pi. No login needed; the backend only accepts calls from the
+// home-dash frontend (Origin/Referer check).
 export interface EtchState {
   w: number;
   h: number;
@@ -171,24 +172,19 @@ export function postComment(
   );
 }
 
-export function getEtchState(token: string, fetchImpl?: FetchLike): Promise<EtchState> {
-  return request<EtchState>("/api/etch", token, { method: "GET" }, fetchImpl);
+export function getEtchState(fetchImpl?: FetchLike): Promise<EtchState> {
+  return request<EtchState>("/api/etch", null, { method: "GET" }, fetchImpl);
 }
 
-export function etchMove(
-  token: string,
-  dx: number,
-  dy: number,
-  fetchImpl?: FetchLike,
-): Promise<EtchCursor> {
+export function etchMove(dx: number, dy: number, fetchImpl?: FetchLike): Promise<EtchCursor> {
   return request<EtchCursor>(
     "/api/etch/move",
-    token,
+    null,
     { method: "POST", body: JSON.stringify({ dx, dy }) },
     fetchImpl,
   );
 }
 
-export function etchClear(token: string, fetchImpl?: FetchLike): Promise<EtchCleared> {
-  return request<EtchCleared>("/api/etch/clear", token, { method: "POST" }, fetchImpl);
+export function etchClear(fetchImpl?: FetchLike): Promise<EtchCleared> {
+  return request<EtchCleared>("/api/etch/clear", null, { method: "POST" }, fetchImpl);
 }
