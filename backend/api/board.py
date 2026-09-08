@@ -43,19 +43,29 @@ class EtchResult(NamedTuple):
 
 def call_board(
     settings: Settings,
-    token: str,
     method: str,
     path: str,
     payload: dict[str, Any] | None = None,
+    *,
+    token: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> EtchResult:
-    """Call the Pi with the caller's bearer token. Never raises; body is the Pi's JSON."""
+    """Call the Pi. Never raises; body is the Pi's JSON.
+
+    `token` adds an Authorization header when given; `headers` are passed
+    through as-is (the backend forwards the browser's Origin/Referer so the
+    Pi can tell frontend calls apart).
+    """
     url = f"{settings.ledboard_url.rstrip('/')}{path}"
+    outgoing = dict(headers or {})
+    if token:
+        outgoing["Authorization"] = f"Bearer {token}"
     try:
         response = httpx.request(
             method,
             url,
             json=payload,
-            headers={"Authorization": f"Bearer {token}"},
+            headers=outgoing,
             timeout=TIMEOUT_SECONDS,
         )
     except httpx.HTTPError as exc:
@@ -72,16 +82,29 @@ def call_board(
     return EtchResult(False, f"{detail}: {text}" if text else detail, response.status_code, {})
 
 
-def etch_state(settings: Settings, token: str) -> EtchResult:
+def etch_state(
+    settings: Settings, *, token: str | None = None, headers: dict[str, str] | None = None
+) -> EtchResult:
     """Fetch the sketch buffer (cursor, lit count, packed bitmap)."""
-    return call_board(settings, token, "GET", "/etch")
+    return call_board(settings, "GET", "/etch", token=token, headers=headers)
 
 
-def etch_move(settings: Settings, token: str, dx: int, dy: int) -> EtchResult:
+def etch_move(
+    settings: Settings,
+    dx: int,
+    dy: int,
+    *,
+    token: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> EtchResult:
     """Nudge the stylus; the Pi draws the line and echoes the new cursor."""
-    return call_board(settings, token, "POST", "/etch/move", {"dx": dx, "dy": dy})
+    return call_board(
+        settings, "POST", "/etch/move", {"dx": dx, "dy": dy}, token=token, headers=headers
+    )
 
 
-def etch_clear(settings: Settings, token: str) -> EtchResult:
+def etch_clear(
+    settings: Settings, *, token: str | None = None, headers: dict[str, str] | None = None
+) -> EtchResult:
     """Shake: wipe the screen, stylus stays where it was."""
-    return call_board(settings, token, "POST", "/etch/clear")
+    return call_board(settings, "POST", "/etch/clear", token=token, headers=headers)

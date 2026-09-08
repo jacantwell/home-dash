@@ -1,7 +1,8 @@
 import re
 from typing import Annotated
+from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from api.auth import Claims, ClerkVerifier, bearer_token, current_user
@@ -63,6 +64,36 @@ def _etch_or_raise(result: EtchResult) -> dict:
     if result.status_code is None:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, result.error or "ledboard unreachable")
     raise HTTPException(result.status_code, result.error)
+
+
+def require_frontend_origin(request: Request) -> None:
+    """Etch is anonymous, but only the home-dash frontend may call it.
+
+    Browsers attest this with Origin/Referer, which must match an entry in
+    CLERK_AUTHORIZED_PARTIES; anything else (curl, hotlinks) gets a 403.
+    Empty means don't check, like local dev.
+    """
+    settings: Settings = request.app.state.settings
+    allowed = {origin.rstrip("/") for origin in settings.authorized_parties}
+    if not allowed:
+        return
+    for header in (request.headers.get("origin"), request.headers.get("referer")):
+        if not header:
+            continue
+        parts = urlsplit(header)
+        origin = (
+            f"{parts.scheme}://{parts.netloc}".rstrip("/") if parts.netloc else header.rstrip("/")
+        )
+        if origin in allowed:
+            return
+    raise HTTPException(
+        status.HTTP_403_FORBIDDEN, "etch is only available from the home-dash frontend"
+    )
+
+
+def _forwarded_origin_headers(request: Request) -> dict[str, str]:
+    """Browser Origin/Referer, passed to the Pi so it can apply the same check."""
+    return {name: value for name in ("origin", "referer") if (value := request.headers.get(name))}
 
 
 def _normalise_color(value: str) -> str:
@@ -143,31 +174,34 @@ def create_app(settings: Settings, verifier: ClerkVerifier | None = None) -> Fas
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "ledboard is rate limiting")
         return message
 
-    # etch-a-sketch: the Pi owns the sketch buffer, this just forwards with the caller's token
+    # etch-a-sketch: anonymous, frontend-only. The Pi owns the sketch buffer,
+    # this just forwards the browser's Origin/Referer with the call.
     @app.get("/api/etch")
     def get_etch(
-        claims: Annotated[Claims, Depends(current_user)],
-        token: Annotated[str, Depends(bearer_token)],
+        request: Request,
+        _origin: None = Depends(require_frontend_origin),
     ) -> dict:
         settings: Settings = app.state.settings
-        return _etch_or_raise(etch_state(settings, token))
+        return _etch_or_raise(etch_state(settings, headers=_forwarded_origin_headers(request)))
 
     @app.post("/api/etch/move")
     def post_etch_move(
         body: EtchMove,
-        claims: Annotated[Claims, Depends(current_user)],
-        token: Annotated[str, Depends(bearer_token)],
+        request: Request,
+        _origin: None = Depends(require_frontend_origin),
     ) -> dict:
         settings: Settings = app.state.settings
-        return _etch_or_raise(etch_move(settings, token, body.dx, body.dy))
+        return _etch_or_raise(
+            etch_move(settings, body.dx, body.dy, headers=_forwarded_origin_headers(request))
+        )
 
     @app.post("/api/etch/clear")
     def post_etch_clear(
-        claims: Annotated[Claims, Depends(current_user)],
-        token: Annotated[str, Depends(bearer_token)],
+        request: Request,
+        _origin: None = Depends(require_frontend_origin),
     ) -> dict:
         settings: Settings = app.state.settings
-        return _etch_or_raise(etch_clear(settings, token))
+        return _etch_or_raise(etch_clear(settings, headers=_forwarded_origin_headers(request)))
 
     # anonymous, no auth: comments vanish after COMMENT_TTL
     @app.get("/api/chatroom/{slug}/comments", response_model=CommentList)
