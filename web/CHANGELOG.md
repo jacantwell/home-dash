@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/jacantwell/home-dash/compare/v0.2.1...v0.2.2) (2026-09-08)
+
+
+### Features
+
+* **etch:** open etch-a-sketch to everyone, frontend-only ([#34](https://github.com/jacantwell/home-dash/issues/34)) ([02d961d](https://github.com/jacantwell/home-dash/commit/02d961d0c85ab6fdc196ea355149bf82ae4adaa6))
+
 ## [0.2.1](https://github.com/jacantwell/home-dash/compare/v0.2.0...v0.2.1) (2026-09-08)
 
 
