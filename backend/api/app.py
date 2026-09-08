@@ -2,10 +2,10 @@ import re
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from api.auth import Claims, ClerkVerifier, bearer_token, current_user
-from api.board import send_to_board
+from api.board import EtchResult, etch_clear, etch_move, etch_state, send_to_board
 from api.comments import Comment, CommentRepo, get_comment_repo
 from api.config import Settings
 from api.db import Message, MessageRepo, get_repo
@@ -43,6 +43,26 @@ class MessageIn(BaseModel):
 
 class MessageList(BaseModel):
     messages: list[Message] = Field(default_factory=list)
+
+
+class EtchMove(BaseModel):
+    dx: int = Field(default=0, ge=-32, le=32)
+    dy: int = Field(default=0, ge=-32, le=32)
+
+    @model_validator(mode="after")
+    def _reject_noop(self) -> "EtchMove":
+        if self.dx == 0 and self.dy == 0:
+            raise ValueError("dx/dy can't both be zero")
+        return self
+
+
+def _etch_or_raise(result: EtchResult) -> dict:
+    """Return the Pi's JSON, or surface its failure (502 when the Pi can't be reached)."""
+    if result.ok:
+        return result.body
+    if result.status_code is None:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, result.error or "ledboard unreachable")
+    raise HTTPException(result.status_code, result.error)
 
 
 def _normalise_color(value: str) -> str:
@@ -122,6 +142,32 @@ def create_app(settings: Settings, verifier: ClerkVerifier | None = None) -> Fas
         if result.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "ledboard is rate limiting")
         return message
+
+    # etch-a-sketch: the Pi owns the sketch buffer, this just forwards with the caller's token
+    @app.get("/api/etch")
+    def get_etch(
+        claims: Annotated[Claims, Depends(current_user)],
+        token: Annotated[str, Depends(bearer_token)],
+    ) -> dict:
+        settings: Settings = app.state.settings
+        return _etch_or_raise(etch_state(settings, token))
+
+    @app.post("/api/etch/move")
+    def post_etch_move(
+        body: EtchMove,
+        claims: Annotated[Claims, Depends(current_user)],
+        token: Annotated[str, Depends(bearer_token)],
+    ) -> dict:
+        settings: Settings = app.state.settings
+        return _etch_or_raise(etch_move(settings, token, body.dx, body.dy))
+
+    @app.post("/api/etch/clear")
+    def post_etch_clear(
+        claims: Annotated[Claims, Depends(current_user)],
+        token: Annotated[str, Depends(bearer_token)],
+    ) -> dict:
+        settings: Settings = app.state.settings
+        return _etch_or_raise(etch_clear(settings, token))
 
     # anonymous, no auth: comments vanish after COMMENT_TTL
     @app.get("/api/chatroom/{slug}/comments", response_model=CommentList)

@@ -40,6 +40,9 @@ Without an issuer the service still boots (`/api/healthz` works) and protected r
 | POST   | `/api/messages`                           | yes  | `202 Message`; `429` passthrough if the Pi says so |
 | GET    | `/api/chatroom/{slug}/comments?limit=100` | no   | `200 {"comments": [Comment]}` oldest first, 1..200 |
 | POST   | `/api/chatroom/{slug}/comments`           | no   | `201 Comment`                                      |
+| GET    | `/api/etch`                               | yes  | `200` sketch state, proxied from the Pi            |
+| POST   | `/api/etch/move`                          | yes  | `200 {"x","y"}`; nudges the stylus                |
+| POST   | `/api/etch/clear`                         | yes  | `200 {"cleared","x","y"}`; shakes the screen clean |
 
 POST body: `{"text": "1..200 chars after trim", "color": "#rrggbb" | null, "duration_s": 1..60 | null}`.
 `duration_s` is how many seconds the board shows it for (scrolling text loops until it elapses);
@@ -50,6 +53,15 @@ caller's own bearer token (5s timeout); the row is inserted with `status` `sent`
 ```
 Message = {id, text, color, duration_s, status, error, sender_name, created_at}
 ```
+
+### Etch-a-sketch
+
+`GET /api/etch` returns the Pi's sketch buffer
+(`{w, h, x, y, lit, pixels_b64}`, packed-bits bitmap, base64). `POST /api/etch/move`
+takes `{"dx": -32..32, "dy": -32..32}` (not both zero) and returns the new cursor;
+`POST /api/etch/clear` wipes the screen. All three forward the caller's bearer token
+to `${LEDBOARD_URL}/etch/*` (5s timeout): an unreachable Pi is a `502`, a Pi error
+(e.g. `503` when its etch app is off) passes through with its status code.
 
 Auth: `Authorization: Bearer <clerk session token>`. RS256 via the issuer's JWKS, `exp`/`iat`/`sub`
 required, 5s leeway, `azp` must be in `CLERK_AUTHORIZED_PARTIES` when set. Failures are `401`.

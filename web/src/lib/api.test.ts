@@ -5,7 +5,10 @@ import {
   clampDuration,
   type Comment,
   DEFAULT_DURATION_S,
+  etchClear,
+  etchMove,
   formatDuration,
+  getEtchState,
   listComments,
   listMessages,
   type Message,
@@ -171,5 +174,43 @@ describe("postComment", () => {
     await expect(postComment("x", { text: "hi", color: "#000000" }, fetchImpl)).rejects.toThrow(
       expected,
     );
+  });
+});
+
+const etchState = { w: 128, h: 32, x: 64, y: 16, lit: 1, pixels_b64: "AAA=" };
+
+describe("getEtchState", () => {
+  it("returns the sketch state with the bearer token", async () => {
+    const fetchImpl = fakeFetch(200, etchState);
+    await expect(getEtchState("tok", fetchImpl)).resolves.toEqual(etchState);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("/api/etch");
+    expect(init?.headers).toMatchObject({ Authorization: "Bearer tok" });
+  });
+
+  it("throws ApiError when the Pi is unreachable", async () => {
+    const fetchImpl = fakeFetch(502, { detail: "ConnectError: nope" });
+    await expect(getEtchState("tok", fetchImpl)).rejects.toMatchObject({
+      status: 502,
+      message: "ConnectError: nope",
+    });
+  });
+});
+
+describe("etchMove", () => {
+  it("posts the nudge and returns the cursor", async () => {
+    const fetchImpl = fakeFetch(200, { x: 68, y: 16 });
+    await expect(etchMove("tok", 4, 0, fetchImpl)).resolves.toEqual({ x: 68, y: 16 });
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("/api/etch/move");
+    expect(JSON.parse(String(init?.body))).toEqual({ dx: 4, dy: 0 });
+  });
+});
+
+describe("etchClear", () => {
+  it("clears and returns the stylus position", async () => {
+    const fetchImpl = fakeFetch(200, { cleared: true, x: 68, y: 16 });
+    await expect(etchClear("tok", fetchImpl)).resolves.toEqual({ cleared: true, x: 68, y: 16 });
+    expect(fetchImpl.mock.calls[0][0]).toBe("/api/etch/clear");
   });
 });
