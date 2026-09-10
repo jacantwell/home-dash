@@ -14,7 +14,10 @@ vi.mock("@clerk/nextjs", async () => {
   return {
     ClerkProvider: passthrough,
     Show: passthrough,
+    SignIn: () => React.createElement("div", { "data-testid": "clerk-sign-in" }),
     SignInButton: passthrough,
+    SignUp: () => React.createElement("div", { "data-testid": "clerk-sign-up" }),
+    SignUpButton: passthrough,
     UserButton: () => React.createElement("div", { "data-testid": "user-button" }),
     useAuth: vi.fn(() => ({
       isLoaded: true,

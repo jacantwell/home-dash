@@ -38,7 +38,7 @@ function LogOn() {
           <p className="pt-1">You need to sign in before you can post to the board.</p>
         </div>
         <div className="xp-dialog-actions">
-          <SignInButton mode="modal">
+          <SignInButton mode="redirect">
             <Button className="default">Sign in...</Button>
           </SignInButton>
         </div>

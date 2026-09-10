@@ -8,7 +8,7 @@ export function AuthNav() {
   return (
     <span className="ml-auto flex items-center">
       <Show when="signed-out">
-        <SignInButton mode="modal">
+        <SignInButton mode="redirect">
           <button type="button" className="cursor-pointer underline">
             sign in
           </button>

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <ClerkProvider>
+    <ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up">
       <html lang="en" className="h-full">
         <body className="flex min-h-full flex-col">
           <header className="raw sitebar mx-auto w-full max-w-4xl px-4 pt-3">
