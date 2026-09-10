@@ -9,5 +9,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
+    // Room for a 5s async query plus the rest of the test.
+    testTimeout: 15000,
   },
 });
