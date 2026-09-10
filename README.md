@@ -118,6 +118,8 @@ It refuses to promote a commit that has not landed on `main`, one whose CI did n
 (`skip-ci-check` overrides), or anything that is not a fast-forward of the current `production`.
 The approval gate is the `promote` GitHub Environment — _not_ `Production`, which belongs to
 Vercel's integration and would stall its deployment statuses if it carried a protection rule.
+Anyone with write access can press the button, but the run parks until **@jacantwell** approves
+it (the environment's required reviewer), and it only runs from `main`.
 
 Rolling back is the same button with an older `ref` and `allow-rollback` ticked — that is the
 only thing allowed to move `production` backwards, and it force-pushes with a lease. For the
