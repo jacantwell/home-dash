@@ -1,16 +1,22 @@
 # The manual gate between staging and production. Every commit that lands on
 # `main` deploys itself to staging.worm.beer; nothing reaches worm.beer until
 # this workflow fast-forwards the `production` branch — Vercel's production
-# branch — onto a commit that is already sitting on staging.
+# branch — onto a release that is already sitting on staging, then publishes
+# that same version to Duku's production environment.
 name: Promote to production
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Branch or commit SHA to promote. Must already be on main.
+        description: Release tag (vX.Y.Z), branch or commit SHA to promote. Must already be on main. Empty = the latest release.
         required: false
-        default: main
+        default: ""
+      allow-unreleased:
+        description: Promote a commit that is not a tagged release. Duku will label it with the last released version.
+        type: boolean
+        required: false
+        default: false
       skip-ci-check:
         description: Promote even if CI did not pass on that commit.
         type: boolean
@@ -28,7 +34,7 @@ concurrency:
 
 permissions:
   contents: write # fast-forwards the production branch
-  actions: write # reads the CI run, and dispatches the Duku workflow
+  actions: read # reads the CI run for the promoted commit
 
 jobs:
   promote:
@@ -38,25 +44,44 @@ jobs:
     # one belongs to Vercel's GitHub integration, and a protection rule there
     # would stall every deployment status it writes.
     environment: promote
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          fetch-tags: true
 
-      - name: Resolve the commit to promote
+      - name: Resolve the release to promote
         id: resolve
         env:
           REF: ${{ inputs.ref }}
+          ALLOW_UNRELEASED: ${{ inputs.allow-unreleased }}
         run: |
           set -euo pipefail
+          if [ -z "$REF" ]; then
+            # Latest release-please tag on main.
+            REF="$(git describe --tags --abbrev=0 --match 'v*' origin/main)"
+            echo "no ref given — promoting the latest release, $REF"
+          fi
           sha="$(git rev-parse --verify --quiet "origin/$REF^{commit}" || git rev-parse --verify "$REF^{commit}")"
           # Only landed code ships: the commit has to be reachable from main.
           if ! git merge-base --is-ancestor "$sha" origin/main; then
             echo "::error::$REF ($sha) is not an ancestor of main — promote something that has landed"
             exit 1
           fi
+          # Only released code ships: the commit has to be a release-please tag,
+          # otherwise the Duku build gets labelled with a version it isn't.
+          tag="$(git tag --points-at "$sha" --list 'v*' | sort -V | tail -1)"
+          if [ -z "$tag" ] && [ "$ALLOW_UNRELEASED" != "true" ]; then
+            echo "::error::$REF ($sha) is not a tagged release. Merge the release PR and promote its tag, or re-run with allow-unreleased."
+            exit 1
+          fi
           {
             echo "sha=$sha"
+            echo "tag=$tag"
             echo "subject=$(git log -1 --format=%s "$sha")"
             echo "version=$(git cat-file -p "$sha:web/package.json" | jq -r .version)"
           } >> "$GITHUB_OUTPUT"
@@ -82,7 +107,7 @@ jobs:
           ALLOW_ROLLBACK: ${{ inputs.allow-rollback }}
         run: |
           set -euo pipefail
-          previous="$(git rev-parse --verify --quiet origin/production^{commit} || true)"
+          previous="$(git rev-parse --verify --quiet "origin/production^{commit}" || true)"
           direction=forward
           if [ -z "$previous" ]; then
             echo "production does not exist yet — creating it at $SHA"
@@ -106,19 +131,11 @@ jobs:
             git push origin "$SHA:refs/heads/production"
           fi
 
-      # A push made with the GITHUB_TOKEN does not trigger workflows, so the Duku
-      # production run has to be dispatched by hand. workflow_dispatch is one of
-      # the two events GitHub does let that token raise.
-      - name: Kick off the Duku production run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ steps.resolve.outputs.sha }}
-        run: gh workflow run duku-environment.yml --ref production -f sha="$SHA"
-
       - name: Summary
         if: always()
         env:
           SHA: ${{ steps.resolve.outputs.sha }}
+          TAG: ${{ steps.resolve.outputs.tag }}
           SUBJECT: ${{ steps.resolve.outputs.subject }}
           VERSION: ${{ steps.resolve.outputs.version }}
           PREVIOUS: ${{ steps.push.outputs.previous }}
@@ -127,10 +144,26 @@ jobs:
           {
             echo "## Promote to production"
             echo
+            echo "- **Release:** ${TAG:-unreleased} (v${VERSION:-unknown} in package.json)"
             echo "- **Commit:** \`${SHA:0:7}\` ${SUBJECT:-}"
-            echo "- **Version:** v${VERSION:-unknown}"
             echo "- **Previous production:** \`${PREVIOUS:-unchanged}\`"
             echo "- **Direction:** ${DIRECTION:-did not run}"
             echo
             echo "Vercel builds the \`production\` branch and serves it at https://worm.beer."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # The push above is made with the GITHUB_TOKEN, which never triggers other
+  # workflows, so the Duku publish runs here as the second half of the promote
+  # rather than off a `push:` to `production`.
+  duku-production:
+    name: Duku production
+    needs: promote
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/duku-environment.yml
+    with:
+      environment: production
+      sha: ${{ needs.promote.outputs.sha }}
+      release-label: ${{ needs.promote.outputs.tag || format('v{0}', needs.promote.outputs.version) }}
+    secrets: inherit

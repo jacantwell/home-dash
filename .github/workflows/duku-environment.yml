@@ -1,57 +1,107 @@
-# Records every commit that ships to production as a Duku build, labelled with
-# the app version, then explores + tests it. On push the action also links the
-# PR preview builds to the commit they landed as.
+# Publishes one release of the app to a Duku environment and kicks off its
+# runs: waits for the Vercel deployment of the commit, records it as a Duku
+# build labelled with the version, then starts the exploration + tests.
 #
-# Production is the `production` branch, not `main` — `main` deploys to staging
-# and only reaches here once `promote-to-production.yml` fast-forwards it.
+# Reusable. Two callers drive the release flow, one environment each:
+#   release-please.yml        → staging     (Vercel Preview of `main`, Duku `staging`)
+#   promote-to-production.yml → production  (Vercel Production, Duku `default`)
+# The Duku environment names must exist on the product in Viewport
+# (Product settings → Environments); `default` is Duku's name for production.
 #
-# Dispatch-only on purpose. `promote-to-production.yml` moves `production` with
-# the GITHUB_TOKEN, and pushes made with that token do not trigger workflows, so
-# a `push:` trigger here would silently never fire. Promote dispatches us
-# instead, handing over the exact commit it shipped.
-name: Duku production
+# `workflow_dispatch` is the re-run button for when a run needs repeating.
+name: Duku environment
 
 on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Which environment to publish to — `staging` or `production`.
+        type: string
+        required: true
+      sha:
+        description: Commit that was deployed.
+        type: string
+        required: true
+      release-label:
+        description: Release name to record on the Duku build, e.g. v1.4.2. Defaults to the version in web/package.json at that commit.
+        type: string
+        required: false
+        default: ""
   workflow_dispatch:
     inputs:
+      environment:
+        description: Which environment to publish to.
+        type: choice
+        options: [staging, production]
+        required: true
+        default: staging
       sha:
-        description: Commit to explore. Defaults to the tip of this ref.
+        description: Commit that was deployed. Defaults to the tip of this ref.
         required: false
-
-concurrency:
-  group: duku-env-production
-  cancel-in-progress: false
+      release-label:
+        description: Release name to record on the Duku build. Defaults to the version in web/package.json at that commit.
+        required: false
 
 permissions:
   contents: read
-  pull-requests: read # resolve which PRs the pushed commits came from
+  pull-requests: read # the action resolves which PRs the commits came from
 
 jobs:
-  explore:
-    name: Duku production
+  publish:
+    name: Duku ${{ inputs.environment }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # One publish per environment at a time; queued, never cancelled.
+    concurrency:
+      group: duku-env-${{ inputs.environment }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.sha || github.sha }}
 
-      - name: Read app version
-        id: version
-        # Fail loudly: an empty version would label the Duku release as a bare "v".
+      # Staging is Vercel's Preview deployment of `main`; production is the
+      # Production deployment of the `production` branch.
+      - name: Map the environment
+        id: env
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          version="$(node -p "require('./web/package.json').version")"
-          [ -n "$version" ] || { echo "::error::could not read version from web/package.json"; exit 1; }
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          case "$ENVIRONMENT" in
+            staging)    vercel=Preview;    duku=staging; url=https://staging.worm.beer ;;
+            production) vercel=Production; duku=default; url=https://worm.beer ;;
+            *) echo "::error::unknown environment '$ENVIRONMENT' (want staging or production)"; exit 1 ;;
+          esac
+          {
+            echo "vercel=$vercel"
+            echo "duku=$duku"
+            echo "url=$url"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Wait for Vercel production deployment
+      - name: Resolve the release label
+        id: release
+        env:
+          LABEL: ${{ inputs.release-label }}
+        # Fail loudly: an empty label would publish the Duku release as a bare "v".
+        run: |
+          set -euo pipefail
+          label="$LABEL"
+          if [ -z "$label" ]; then
+            version="$(node -p "require('./web/package.json').version")"
+            [ -n "$version" ] || { echo "::error::could not read version from web/package.json"; exit 1; }
+            label="v$version"
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Vercel ${{ steps.env.outputs.vercel }} deployment
         id: vercel
         uses: ./.github/actions/wait-for-vercel
         with:
           sha: ${{ inputs.sha || github.sha }}
-          environment: Production
+          environment: ${{ steps.env.outputs.vercel }}
 
-      - name: Explore production with Duku
+      - name: Publish ${{ steps.release.outputs.label }} to Duku ${{ steps.env.outputs.duku }}
         id: duku
         # Unreleased (0.4-to-be) code, pinned to duku-ai/actions main @ chrome-worker@7403cf1.
         # Move to a release tag (environment/vX.Y.Z) once one is cut. Dependabot is told to leave this alone.
@@ -60,27 +110,30 @@ jobs:
           api-key: ${{ secrets.PLATFORM_API_KEY }}
           product-id: ${{ vars.DUKU_PRODUCT_ID }}
           api-url: ${{ vars.DUKU_API_URL || 'https://platform.duku.ai/graphql' }}
-          # Must match the environment declared on the product in Viewport — the
-          # production environment there is named `default`.
-          environment: default
+          environment: ${{ steps.env.outputs.duku }}
           # Same value the app reports as NEXT_PUBLIC_APP_VERSION.
-          release-label: v${{ steps.version.outputs.version }}
+          release-label: ${{ steps.release.outputs.label }}
           github-token: ${{ github.token }}
 
       - name: Summary
         if: always()
         env:
-          URL: ${{ steps.vercel.outputs.url }}
-          VERSION: ${{ steps.version.outputs.version }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          DUKU_ENV: ${{ steps.env.outputs.duku }}
+          URL: ${{ steps.vercel.outputs.url || steps.env.outputs.url }}
+          LABEL: ${{ steps.release.outputs.label }}
+          SHA: ${{ inputs.sha || github.sha }}
           RUN_ID: ${{ steps.duku.outputs.run-id }}
           RUN_STATUS: ${{ steps.duku.outputs.run-status }}
           TEST_ID: ${{ steps.duku.outputs.test-run-id }}
           TEST_STATUS: ${{ steps.duku.outputs.test-run-status }}
         run: |
           {
-            echo "## Duku production — v$VERSION"
+            echo "## Duku $ENVIRONMENT — ${LABEL:-unknown}"
             echo
+            echo "- **Commit:** \`${SHA:0:7}\`"
             echo "- **Deployed:** $URL"
+            echo "- **Duku environment:** \`${DUKU_ENV:-?}\`"
             echo "- **Exploration:** ${RUN_ID:-none} (${RUN_STATUS:-not started})"
             echo "- **Tests:** ${TEST_ID:-none} (${TEST_STATUS:-not started})"
           } >> "$GITHUB_STEP_SUMMARY"
