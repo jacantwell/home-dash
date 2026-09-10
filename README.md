@@ -106,40 +106,55 @@ domain, and with it on `staging.worm.beer` redirects everyone to Vercel SSO. Cle
 ### Promoting staging to production
 
 Production tracks the `production` branch, which never moves on its own. Run the
-**Promote to production** workflow from the Actions tab (`workflow_dispatch`) to fast-forward it:
+**Promote to production** workflow from the Actions tab (`workflow_dispatch`) to fast-forward it.
+Leave `ref` empty and it promotes the **latest release tag** — the version that release-please
+just cut and that is already sitting on staging:
 
 ```
-main ──auto──► staging.worm.beer
- │
- └─ Actions ▸ Promote to production ─(approval)─► git push --ff production ──► worm.beer
+PR ──merge──► main ──auto──► staging.worm.beer ──► release PR opens itself
+                                                        │
+                        merge release PR ──► vX.Y.Z tag ─┴─► Duku `staging` publish + runs
+                                                        │
+ Actions ▸ Promote to production ─(approval)─► git push --ff production ──► worm.beer
+                                                        └─► Duku `default` publish + runs
 ```
 
-It refuses to promote a commit that has not landed on `main`, one whose CI did not pass
-(`skip-ci-check` overrides), or anything that is not a fast-forward of the current `production`.
-The approval gate is the `promote` GitHub Environment — _not_ `Production`, which belongs to
-Vercel's integration and would stall its deployment statuses if it carried a protection rule.
-Anyone with write access can press the button, but the run parks until **@jacantwell** approves
-it (the environment's required reviewer), and it only runs from `main`.
+It refuses to promote a commit that has not landed on `main`, one that is not a tagged release
+(`allow-unreleased` overrides — Duku would then label the build with the last released version),
+one whose CI did not pass (`skip-ci-check` overrides), or anything that is not a fast-forward of
+the current `production`. The approval gate is the `promote` GitHub Environment — _not_
+`Production`, which belongs to Vercel's integration and would stall its deployment statuses if it
+carried a protection rule.
 
-Rolling back is the same button with an older `ref` and `allow-rollback` ticked — that is the
-only thing allowed to move `production` backwards, and it force-pushes with a lease. For the
-30-second case use **Instant Rollback** in the Vercel dashboard instead, then promote a real
-commit afterwards so the branch and the live alias agree again.
+Rolling back is the same button with an older release tag as `ref` and `allow-rollback` ticked —
+that is the only thing allowed to move `production` backwards, and it force-pushes with a lease.
+For the 30-second case use **Instant Rollback** in the Vercel dashboard instead, then promote a
+real release afterwards so the branch and the live alias agree again.
 
 ## Duku
 
-Every production deploy is explored by [Duku](https://duku.ai):
+Every **release** is published to [Duku](https://duku.ai) twice — once per environment — and
+explored and tested there. `duku-environment.yml` is a reusable workflow that waits for the
+Vercel deployment of a commit, records it as a Duku build labelled with the release (`vX.Y.Z`,
+same as `NEXT_PUBLIC_APP_VERSION`) and kicks off the environment's exploration + test cases:
 
-- `duku-environment.yml` waits for the Vercel **Production** deployment of a commit, then runs
-  the `environment` action against the `default` environment — Duku's name for a product's
-  production environment — labelling the build with the app version (`vX.Y.Z`, same as
-  `NEXT_PUBLIC_APP_VERSION`) and linking the PR preview builds that landed in it.
-- It fires on promotion, not on landing, and it is `workflow_dispatch`-only: **Promote to
-  production** dispatches it with the SHA it just shipped. A `push:` trigger would never fire,
-  because pushes made with the `GITHUB_TOKEN` do not start workflow runs.
+| Trigger                                       | Vercel deployment           | Duku environment                       |
+| --------------------------------------------- | --------------------------- | -------------------------------------- |
+| Merging the release PR (`release-please.yml`) | Preview of `main` (staging) | `staging`                              |
+| **Promote to production**                     | Production                  | `default` (Duku's name for production) |
 
-PR previews are deliberately **not** explored: exploration runs at the environment level only,
-so a PR's signal comes from CI and the build it lands as.
+Both environments have to be declared on the product in Viewport (Product settings →
+Environments) with the matching URL; the action does not create them.
+
+Ordinary merges to `main` reach staging via Vercel but are **not** published to Duku — only tagged
+versions are, so every Duku build maps to a GitHub Release. PR previews are deliberately not
+explored either: exploration runs at the environment level only, so a PR's signal comes from CI
+and the release it lands in.
+
+Neither publish fires off a `push:` event. The staging one chains onto the release-please job
+that created the tag, and the production one is the second job of the promote run, because
+pushes made with the `GITHUB_TOKEN` never start workflows. To repeat a publish by hand, dispatch
+**Duku environment** with the environment and commit.
 
 Configuration lives in repo settings: variables `DUKU_PRODUCT_ID`, `DUKU_API_URL` (production
 platform) and secret `PLATFORM_API_KEY`. The action is pinned to an unreleased commit of

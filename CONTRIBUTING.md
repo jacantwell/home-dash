@@ -71,8 +71,10 @@ decision: land a PR titled `feat!: release 1.0.0` (or set `"release-as": "1.0.0"
    `package.json` bump and the generated `CHANGELOG.md` entry, computed from the commits since
    the last tag.
 3. Merging that PR creates the `vX.Y.Z` tag and a GitHub Release with the changelog.
-4. Vercel deploys `main` to staging on every merge. Production is a separate, manual promote
-   (see Deployments below); the version is exposed to the app as `NEXT_PUBLIC_APP_VERSION`.
+4. Vercel deploys `main` to staging on every merge, so merging the release PR puts that version
+   on staging. The same run then publishes the release to Duku's `staging` environment and kicks
+   off its exploration and tests. The version is exposed to the app as `NEXT_PUBLIC_APP_VERSION`.
+5. Production is a separate, manual promote of that release (see Deployments below).
 
 Tags matching `v*` are protected: they can't be deleted or moved.
 
@@ -99,13 +101,16 @@ Enforced by repository rulesets (Settings → Rules), not by convention:
 
 - Every PR gets a **Vercel preview deployment**; the URL is posted on the PR.
 - `main` deploys to **staging** ([staging.worm.beer](https://staging.worm.beer)) automatically.
+- Merging the release PR publishes the new `vX.Y.Z` to Duku's `staging` environment and runs
+  its exploration + tests there. Other merges hit staging but are not published to Duku.
 - **Production ([worm.beer](https://worm.beer)) is manual.** Merging does not ship it. Run the
-  **Promote to production** workflow from the Actions tab, which fast-forwards the `production`
-  branch onto a commit already on staging. The run waits for **@jacantwell** to approve it — the
-  `promote` environment's required reviewer — so nobody else can actually ship. See README → Deployment.
-- Duku explores each production deploy, on promotion rather than on landing (see README → Duku).
-  PR previews are deliberately not explored. The check run it posts reflects whether the
-  exploration completed, not whether it found issues.
-- Roll back with the same promote workflow, passing an older `ref` and ticking `allow-rollback`.
-  Vercel's **Instant Rollback** is the faster escape hatch; follow it with a real promote so the
-  branch and the live alias agree again.
+  **Promote to production** workflow from the Actions tab; with `ref` empty it fast-forwards the
+  `production` branch onto the latest release tag, then publishes that same version to Duku's
+  production environment (`default`) and runs it. The run waits for **@jacantwell** to approve
+  it — the `promote` environment's required reviewer — so nobody else can actually ship. See
+  README → Deployment.
+- Promote refuses commits that are not tagged releases unless `allow-unreleased` is ticked. The
+  Duku check run reflects whether the exploration completed, not whether it found issues.
+- Roll back with the same promote workflow, passing an older release tag as `ref` and ticking
+  `allow-rollback`. Vercel's **Instant Rollback** is the faster escape hatch; follow it with a
+  real promote so the branch and the live alias agree again.
