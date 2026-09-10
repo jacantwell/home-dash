@@ -71,8 +71,8 @@ decision: land a PR titled `feat!: release 1.0.0` (or set `"release-as": "1.0.0"
    `package.json` bump and the generated `CHANGELOG.md` entry, computed from the commits since
    the last tag.
 3. Merging that PR creates the `vX.Y.Z` tag and a GitHub Release with the changelog.
-4. Vercel deploys `main` to production on every merge; the version is exposed to the app as
-   `NEXT_PUBLIC_APP_VERSION`.
+4. Vercel deploys `main` to staging on every merge. Production is a separate, manual promote
+   (see Deployments below); the version is exposed to the app as `NEXT_PUBLIC_APP_VERSION`.
 
 Tags matching `v*` are protected: they can't be deleted or moved.
 
@@ -86,7 +86,13 @@ Tags matching `v*` are protected: they can't be deleted or moved.
 ## Deployments
 
 - Every PR gets a **Vercel preview deployment**; the URL is posted on the PR.
-- `main` deploys to **production** automatically.
-- Duku explores each preview and each production deploy (see README → Duku). The check run it
-  posts reflects whether the exploration completed, not whether it found issues.
-- Roll back by redeploying a previous production deployment in Vercel, then land a `fix`/`revert` PR.
+- `main` deploys to **staging** ([staging.worm.beer](https://staging.worm.beer)) automatically.
+- **Production ([worm.beer](https://worm.beer)) is manual.** Merging does not ship it. Run the
+  **Promote to production** workflow from the Actions tab, which fast-forwards the `production`
+  branch onto a commit already on staging. See README → Deployment.
+- Duku explores each production deploy, on promotion rather than on landing (see README → Duku).
+  PR previews are deliberately not explored. The check run it posts reflects whether the
+  exploration completed, not whether it found issues.
+- Roll back with the same promote workflow, passing an older `ref` and ticking `allow-rollback`.
+  Vercel's **Instant Rollback** is the faster escape hatch; follow it with a real promote so the
+  branch and the live alias agree again.
