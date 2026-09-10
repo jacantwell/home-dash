@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/jacantwell/home-dash/compare/v0.2.5...v0.2.6) (2026-09-10)
+
+
+### Features
+
+* **app:** sitemap.xml listing every page and chat room ([#48](https://github.com/jacantwell/home-dash/issues/48)) ([06032f4](https://github.com/jacantwell/home-dash/commit/06032f4084d175155250d0357fbec1b6d753ef83))
+
 ## [0.2.5](https://github.com/jacantwell/home-dash/compare/v0.2.4...v0.2.5) (2026-09-10)
 
 
