@@ -772,6 +772,7 @@ ol.pc-log {
     0 2px 6px rgba(0, 0, 0, 0.35);
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   touch-action: pan-y;
 }
 .etch-frame.shaking {
@@ -835,6 +836,7 @@ ol.pc-log {
 }
 .etch-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
@@ -855,24 +857,35 @@ ol.pc-log {
   box-shadow:
     0 2px 6px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  cursor: ns-resize;
+  cursor: grab;
   touch-action: none;
   display: grid;
   place-items: center;
 }
-.etch-knob:hover {
+.etch-knob:hover,
+.etch-knob:focus-visible {
   outline: 2px solid #f7e9c4;
   outline-offset: 2px;
 }
 .etch-knob:active {
   cursor: grabbing;
 }
+/* Knurled edge so the spin is visible even between detents. */
 .etch-dial {
   width: 52px;
   height: 52px;
   border-radius: 50%;
   position: relative;
   pointer-events: none;
+}
+.etch-dial::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgba(0, 0, 0, 0.09) 0 5deg, transparent 5deg 15deg);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%);
+  mask: radial-gradient(circle, transparent 62%, #000 63%);
 }
 .etch-dial::before {
   content: "";
@@ -905,4 +918,25 @@ ol.pc-log {
   color: #fff;
   font: bold 12px/1.2 var(--font-code);
   letter-spacing: 0.1em;
+}
+/* Thumbs: bigger knobs, and the readout moves above them so both fit. */
+@media (pointer: coarse) {
+  .etch-knob {
+    width: 88px;
+    height: 88px;
+  }
+  .etch-dial {
+    width: 70px;
+    height: 70px;
+  }
+  .etch-dial::before {
+    height: 20px;
+  }
+}
+@media (max-width: 480px) {
+  .etch-mid {
+    order: -1;
+    width: 100%;
+    padding-top: 0;
+  }
 }
