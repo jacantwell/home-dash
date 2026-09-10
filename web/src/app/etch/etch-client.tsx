@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -12,16 +13,25 @@ import { PixelIcon } from "@/components/pixel-icon";
 import { Button, Dialog, StatusBar, ToolButton, ToolSeparator } from "@/components/xp";
 import { ApiError, etchClear, etchMove, type EtchState, getEtchState } from "@/lib/api";
 
-// Mouse travel per LED pixel when dragging a knob, and the biggest chunk sent
-// in one POST (the Pi clamps each axis to ±32 anyway).
-const PX_PER_STEP = 10;
-const CHUNK = 5;
+// Knob detent in degrees of spin per LED pixel; wheel travel in px per pixel.
+const DEG_PER_STEP = 10;
+const WHEEL_PX_PER_STEP = 100;
+// Pointer this close to the knob centre has no meaningful angle.
+const KNOB_DEAD_ZONE = 6;
+// Biggest move in one POST (the backend rejects anything past ±32 per axis).
+const MAX_STEP = 32;
 const POLL_MS = 5000;
 const DOT = 8;
+
+type Segment = { dx: number; dy: number };
 
 function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
   return "Something went wrong. Try again.";
+}
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, n));
 }
 
 function decodeBits(st: EtchState): Uint8Array {
@@ -36,6 +46,7 @@ function decodeBits(st: EtchState): Uint8Array {
   return bits;
 }
 
+// Lights the line and returns how many pixels were newly lit.
 function inkLine(
   bits: Uint8Array,
   w: number,
@@ -44,13 +55,23 @@ function inkLine(
   y0: number,
   x1: number,
   y1: number,
-) {
+): number {
   const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  let lit = 0;
   for (let i = 0; i <= steps; i++) {
     const x = Math.round(x0 + (x1 - x0) * (steps ? i / steps : 0));
     const y = Math.round(y0 + (y1 - y0) * (steps ? i / steps : 0));
-    if (x >= 0 && x < w && y >= 0 && y < h) bits[y * w + x] = 1;
+    if (x < 0 || x >= w || y < 0 || y >= h) continue;
+    if (!bits[y * w + x]) lit++;
+    bits[y * w + x] = 1;
   }
+  return lit;
+}
+
+// Same axis, same direction: the Pi draws the same line whether it gets one
+// POST or two, so these can be merged.
+function sameWay(a: Segment, b: Segment) {
+  return Math.sign(a.dx) === Math.sign(b.dx) && Math.sign(a.dy) === Math.sign(b.dy);
 }
 
 export function EtchClient() {
@@ -70,6 +91,17 @@ export function Etch() {
   const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const loaded = useRef(false);
 
+  // Local truth while turns are queued: where the cursor will be once every
+  // queued segment lands. One POST in flight at a time keeps the Pi in order.
+  const pos = useRef<{ x: number; y: number } | null>(null);
+  const bitsRef = useRef<Uint8Array | null>(null);
+  const queue = useRef<Segment[]>([]);
+  const inflight = useRef(false);
+
+  function busy() {
+    return inflight.current || queue.current.length > 0;
+  }
+
   function say(text: string) {
     setNotice(text);
     clearTimeout(noticeTimer.current);
@@ -77,14 +109,19 @@ export function Etch() {
   }
 
   const load = useCallback((quiet: boolean) => {
+    // Don't rewind the screen under someone's finger; the next poll catches up.
+    if (quiet && busy()) return () => {};
     let cancelled = false;
     (async () => {
       try {
         const st = await getEtchState();
-        if (cancelled) return;
+        if (cancelled || (quiet && busy())) return;
         loaded.current = true;
+        const decoded = decodeBits(st);
+        pos.current = { x: st.x, y: st.y };
+        bitsRef.current = decoded;
         setEtch(st);
-        setBits(decodeBits(st));
+        setBits(decoded);
         setLoadError(null);
       } catch (err) {
         if (cancelled) return;
@@ -125,42 +162,87 @@ export function Etch() {
     }
   }, [bits, etch]);
 
-  async function sendMove(dx: number, dy: number) {
-    if (!etch || !bits) return;
-    const nx = Math.max(0, Math.min(etch.w - 1, etch.x + dx));
-    const ny = Math.max(0, Math.min(etch.h - 1, etch.y + dy));
-    const next = bits.slice();
-    inkLine(next, etch.w, etch.h, etch.x, etch.y, nx, ny);
-    setBits(next);
-    setEtch({ ...etch, x: nx, y: ny, lit: next.reduce((a, b) => a + b, 0) });
+  async function pump() {
+    if (inflight.current) return;
+    const seg = queue.current.shift();
+    if (!seg) return;
+    inflight.current = true;
     try {
-      const cursor = await etchMove(dx, dy);
-      setEtch((prev) => (prev ? { ...prev, x: cursor.x, y: cursor.y } : prev));
+      const cursor = await etchMove(seg.dx, seg.dy);
+      inflight.current = false;
+      if (!queue.current.length) {
+        // Idle: the Pi's cursor wins (someone else may be turning too).
+        pos.current = { x: cursor.x, y: cursor.y };
+        setEtch((prev) => (prev ? { ...prev, x: cursor.x, y: cursor.y } : prev));
+      }
     } catch (err) {
+      inflight.current = false;
+      queue.current = [];
       setOpError(errorMessage(err));
       load(true);
+      return;
+    }
+    void pump();
+  }
+
+  function enqueue(seg: Segment) {
+    const tail = queue.current.at(-1);
+    if (
+      tail &&
+      sameWay(tail, seg) &&
+      Math.abs(tail.dx + seg.dx) <= MAX_STEP &&
+      Math.abs(tail.dy + seg.dy) <= MAX_STEP
+    ) {
+      tail.dx += seg.dx;
+      tail.dy += seg.dy;
+    } else {
+      queue.current.push(seg);
     }
   }
 
-  function step(axis: "x" | "y", n: number) {
-    // One straight segment per POST; the y knob inverts so dragging up draws up.
-    while (n !== 0) {
-      const chunk = Math.max(-CHUNK, Math.min(CHUNK, n));
-      n -= chunk;
-      if (axis === "x") void sendMove(chunk, 0);
-      else void sendMove(0, -chunk);
+  function move(dx: number, dy: number) {
+    if (!etch || !pos.current || !bitsRef.current) return;
+    const from = pos.current;
+    const to = {
+      x: clamp(from.x + dx, 0, etch.w - 1),
+      y: clamp(from.y + dy, 0, etch.h - 1),
+    };
+    let ddx = to.x - from.x;
+    let ddy = to.y - from.y;
+    if (!ddx && !ddy) return; // pinned against the edge
+
+    pos.current = to;
+    const next = bitsRef.current.slice();
+    const lit = inkLine(next, etch.w, etch.h, from.x, from.y, to.x, to.y);
+    bitsRef.current = next;
+    setBits(next);
+    setEtch((prev) => (prev ? { ...prev, x: to.x, y: to.y, lit: prev.lit + lit } : prev));
+
+    while (ddx || ddy) {
+      const sx = clamp(ddx, -MAX_STEP, MAX_STEP);
+      const sy = clamp(ddy, -MAX_STEP, MAX_STEP);
+      ddx -= sx;
+      ddy -= sy;
+      enqueue({ dx: sx, dy: sy });
     }
+    void pump();
   }
 
   async function shake(why: string) {
-    if (shaking) return;
+    if (shaking || !etch) return;
     setShaking(true);
+    queue.current = [];
+    const blank = new Uint8Array(etch.w * etch.h);
+    bitsRef.current = blank;
+    setBits(blank);
+    setEtch((prev) => (prev ? { ...prev, lit: 0 } : prev));
     try {
       await etchClear();
       say(why);
       load(true);
     } catch (err) {
       setOpError(errorMessage(err));
+      load(true);
     } finally {
       setTimeout(() => setShaking(false), 600);
     }
@@ -198,28 +280,30 @@ export function Etch() {
         <ShakeFrame shaking={shaking} onShake={() => void shake("shake detected — cleared")}>
           <div className="etch-head">
             <span className="etch-title">ETCH-A-SKETCH</span>
-            <span className="etch-sub">knobs only — no keys</span>
+            <span className="etch-sub">two knobs · no undo</span>
           </div>
           <div className="etch-screen">
             <canvas
               ref={canvasRef}
               width={etch.w * DOT}
               height={etch.h * DOT}
-              aria-label="Etch-a-sketch screen. Draw by dragging the knobs with the mouse."
+              aria-label="Etch-a-sketch screen. Draw by spinning the knobs."
             />
           </div>
           <div className="etch-controls">
             <Knob
               label="left"
               sub="◀ ▶"
-              hint="drag ↕ to turn"
-              ariaLabel="Left knob: horizontal. Drag up or down with the mouse to draw left and right."
-              onTurn={(n) => step("x", n)}
+              hint="spin · scroll · ← →"
+              ariaLabel="Left knob: horizontal. Spin clockwise to draw right."
+              value={etch.x}
+              max={etch.w - 1}
+              valueText={`column ${etch.x} of ${etch.w - 1}`}
+              orientation="horizontal"
+              onTurn={(n) => move(n, 0)}
             />
             <div className="etch-mid">
-              <span className="etch-pos" aria-live="polite">
-                {cursor}
-              </span>
+              <span className="etch-pos">{cursor}</span>
               <span className="etch-sub">
                 {etch.lit} lit pixel{etch.lit === 1 ? "" : "s"}
               </span>
@@ -227,9 +311,13 @@ export function Etch() {
             <Knob
               label="right"
               sub="▲ ▼"
-              hint="drag ↕ to turn"
-              ariaLabel="Right knob: vertical. Drag up or down with the mouse to draw up and down."
-              onTurn={(n) => step("y", n)}
+              hint="spin · scroll · ↑ ↓"
+              ariaLabel="Right knob: vertical. Spin clockwise to draw up."
+              value={etch.y}
+              max={etch.h - 1}
+              valueText={`row ${etch.y} from the top`}
+              orientation="vertical"
+              onTurn={(n) => move(0, -n)}
             />
           </div>
         </ShakeFrame>
@@ -237,7 +325,7 @@ export function Etch() {
 
       <StatusBar>
         <span aria-live="polite">
-          {notice ?? "Drag a knob to draw. Grab the frame and waggle it to shake."}
+          {notice ?? "Spin a knob to draw. Waggle the frame side to side to shake it clean."}
         </span>
         <span>{cursor}</span>
         <span>Online</span>
@@ -272,7 +360,6 @@ function ShakeFrame({
   onShake: () => void;
   children: React.ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const trail = useRef<{ x: number; t: number }[]>([]);
   const down = useRef(false);
   const coolUntil = useRef(0);
@@ -307,7 +394,6 @@ function ShakeFrame({
 
   return (
     <div
-      ref={ref}
       className={shaking ? "etch-frame shaking" : "etch-frame"}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -320,63 +406,149 @@ function ShakeFrame({
   );
 }
 
+type Drag = {
+  id: number;
+  cx: number;
+  cy: number;
+  last: number | null; // null while in the dead zone
+  acc: number;
+  touch: boolean;
+};
+
+const KEY_STEPS: Record<string, number> = {
+  ArrowUp: 1,
+  ArrowRight: 1,
+  ArrowDown: -1,
+  ArrowLeft: -1,
+  PageUp: 10,
+  PageDown: -10,
+};
+
+function angleAt(cx: number, cy: number, e: { clientX: number; clientY: number }) {
+  return (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI;
+}
+
+// A real knob: spin it around its centre. Clockwise is positive. The dial
+// follows the pointer 1:1, steps fire every DEG_PER_STEP degrees.
 function Knob({
   label,
   sub,
   hint,
   ariaLabel,
+  value,
+  max,
+  valueText,
+  orientation,
   onTurn,
 }: {
   label: string;
   sub: string;
   hint: string;
   ariaLabel: string;
+  value: number;
+  max: number;
+  valueText: string;
+  orientation: "horizontal" | "vertical";
   onTurn: (n: number) => void;
 }) {
-  const [angle, setAngle] = useState(0);
-  const drag = useRef<{ y: number; acc: number } | null>(null);
   const knobRef = useRef<HTMLDivElement>(null);
+  const dialRef = useRef<HTMLDivElement>(null);
+  const angle = useRef(0);
+  const drag = useRef<Drag | null>(null);
+  const wheelAcc = useRef(0);
   const turnRef = useRef(onTurn);
   useEffect(() => {
     turnRef.current = onTurn;
   }, [onTurn]);
 
-  function turn(n: number) {
+  function spin(deg: number) {
+    angle.current += deg;
+    if (dialRef.current) dialRef.current.style.transform = `rotate(${angle.current}deg)`;
+  }
+
+  function turn(n: number, haptic = false) {
     if (!n) return;
-    setAngle((a) => (a + n * 18) % 360);
     turnRef.current(n);
+    if (haptic) navigator.vibrate?.(3);
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    drag.current = { y: e.clientY, acc: 0 };
+    if (drag.current || (e.pointerType === "mouse" && e.button !== 0)) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const dead = Math.hypot(e.clientX - cx, e.clientY - cy) < KNOB_DEAD_ZONE;
+    drag.current = {
+      id: e.pointerId,
+      cx,
+      cy,
+      last: dead ? null : angleAt(cx, cy, e),
+      acc: 0,
+      touch: e.pointerType === "touch",
+    };
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
-      // jsdom and some touch browsers have no pointer capture; dragging still works
+      // jsdom has no pointer capture; dragging inside the knob still works
     }
+    e.currentTarget.focus({ preventScroll: true });
     e.preventDefault();
   }
 
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
     const d = drag.current;
-    if (!d) return;
-    d.acc += d.y - e.clientY; // up = clockwise = +
-    d.y = e.clientY;
-    const n = Math.trunc(d.acc / PX_PER_STEP);
-    if (n !== 0) {
-      d.acc -= n * PX_PER_STEP;
-      turn(n);
+    if (!d || d.id !== e.pointerId) return;
+    if (Math.hypot(e.clientX - d.cx, e.clientY - d.cy) < KNOB_DEAD_ZONE) {
+      d.last = null;
+      return;
+    }
+    const a = angleAt(d.cx, d.cy, e);
+    if (d.last === null) {
+      d.last = a;
+      return;
+    }
+    let delta = a - d.last;
+    if (delta > 180) delta -= 360;
+    else if (delta < -180) delta += 360;
+    d.last = a;
+    d.acc += delta;
+    spin(delta);
+    const n = Math.trunc(d.acc / DEG_PER_STEP);
+    if (n) {
+      d.acc -= n * DEG_PER_STEP;
+      turn(n, d.touch);
     }
   }
 
+  function endDrag(e: ReactPointerEvent<HTMLDivElement>) {
+    if (drag.current?.id === e.pointerId) drag.current = null;
+  }
+
+  function onKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    const n = KEY_STEPS[e.key];
+    if (!n) return;
+    e.preventDefault();
+    const steps = e.shiftKey && Math.abs(n) === 1 ? n * 5 : n;
+    spin(steps * DEG_PER_STEP);
+    turn(steps);
+  }
+
   // Native wheel listener: React wheel handlers are passive at the root, and
-  // turning the knob must not scroll the page.
+  // turning the knob must not scroll the page. Trackpads fire many tiny deltas,
+  // so accumulate instead of stepping per event. Up or right = clockwise.
   useEffect(() => {
     const el = knobRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      turn(e.deltaY < 0 ? 1 : -1);
+      const raw = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : -e.deltaY;
+      wheelAcc.current += e.deltaMode === 0 ? raw : raw * 33;
+      const n = Math.trunc(wheelAcc.current / WHEEL_PX_PER_STEP);
+      if (n) {
+        wheelAcc.current -= n * WHEEL_PX_PER_STEP;
+        spin(n * DEG_PER_STEP);
+        turn(n);
+      }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -387,14 +559,22 @@ function Knob({
       <div
         ref={knobRef}
         className="etch-knob"
+        role="slider"
+        tabIndex={0}
         aria-label={ariaLabel}
-        title={`${label} knob — drag up or down with the mouse`}
+        aria-orientation={orientation}
+        aria-valuemin={0}
+        aria-valuemax={max}
+        aria-valuenow={value}
+        aria-valuetext={valueText}
+        title={`${label} knob — spin it, scroll on it, or use the arrow keys`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={() => (drag.current = null)}
-        onPointerCancel={() => (drag.current = null)}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onKeyDown={onKeyDown}
       >
-        <div className="etch-dial" style={{ transform: `rotate(${angle}deg)` }} />
+        <div ref={dialRef} className="etch-dial" />
       </div>
       <span className="etch-knob-label">
         {label} {sub}
