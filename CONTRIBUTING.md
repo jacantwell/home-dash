@@ -106,7 +106,7 @@ Enforced by repository rulesets (Settings → Rules), not by convention:
 - **Production ([worm.beer](https://worm.beer)) is manual.** Merging does not ship it. Run the
   **Promote to production** workflow from the Actions tab; with `ref` empty it fast-forwards the
   `production` branch onto the latest release tag, then publishes that same version to Duku's
-  production environment (`default`) and runs it. The run waits for **@jacantwell** to approve
+  production environment (`production`) and runs it. The run waits for **@jacantwell** to approve
   it — the `promote` environment's required reviewer — so nobody else can actually ship. See
   README → Deployment.
 - Promote refuses commits that are not tagged releases unless `allow-unreleased` is ticked. The

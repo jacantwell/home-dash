@@ -4,9 +4,9 @@
 #
 # Reusable. Two callers drive the release flow, one environment each:
 #   release-please.yml        → staging     (Vercel Preview of `main`, Duku `staging`)
-#   promote-to-production.yml → production  (Vercel Production, Duku `default`)
-# The Duku environment names must exist on the product in Viewport
-# (Product settings → Environments); `default` is Duku's name for production.
+#   promote-to-production.yml → production  (Vercel Production, Duku `production`)
+# The Duku environment names must match the ones declared on the product in
+# Viewport (Product settings → Environments): `staging` and `production`.
 #
 # `workflow_dispatch` is the re-run button for when a run needs repeating.
 name: Duku environment
@@ -70,7 +70,7 @@ jobs:
           set -euo pipefail
           case "$ENVIRONMENT" in
             staging)    vercel=Preview;    duku=staging; url=https://staging.worm.beer ;;
-            production) vercel=Production; duku=default; url=https://worm.beer ;;
+            production) vercel=Production; duku=production; url=https://worm.beer ;;
             *) echo "::error::unknown environment '$ENVIRONMENT' (want staging or production)"; exit 1 ;;
           esac
           {

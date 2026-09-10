@@ -116,7 +116,7 @@ PR ──merge──► main ──auto──► staging.worm.beer ──► rel
                         merge release PR ──► vX.Y.Z tag ─┴─► Duku `staging` publish + runs
                                                         │
  Actions ▸ Promote to production ─(approval)─► git push --ff production ──► worm.beer
-                                                        └─► Duku `default` publish + runs
+                                                        └─► Duku `production` publish + runs
 ```
 
 It refuses to promote a commit that has not landed on `main`, one that is not a tagged release
@@ -138,13 +138,13 @@ explored and tested there. `duku-environment.yml` is a reusable workflow that wa
 Vercel deployment of a commit, records it as a Duku build labelled with the release (`vX.Y.Z`,
 same as `NEXT_PUBLIC_APP_VERSION`) and kicks off the environment's exploration + test cases:
 
-| Trigger                                       | Vercel deployment           | Duku environment                       |
-| --------------------------------------------- | --------------------------- | -------------------------------------- |
-| Merging the release PR (`release-please.yml`) | Preview of `main` (staging) | `staging`                              |
-| **Promote to production**                     | Production                  | `default` (Duku's name for production) |
+| Trigger                                       | Vercel deployment           | Duku environment |
+| --------------------------------------------- | --------------------------- | ---------------- |
+| Merging the release PR (`release-please.yml`) | Preview of `main` (staging) | `staging`        |
+| **Promote to production**                     | Production                  | `production`     |
 
-Both environments have to be declared on the product in Viewport (Product settings →
-Environments) with the matching URL; the action does not create them.
+Both names must match the environments declared on the product in Viewport (Product settings →
+Environments); the action does not create them.
 
 Ordinary merges to `main` reach staging via Vercel but are **not** published to Duku — only tagged
 versions are, so every Duku build maps to a GitHub Release. PR previews are deliberately not
