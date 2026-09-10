@@ -84,8 +84,24 @@ without someone pressing a button:
 | Production  | [worm.beer](https://worm.beer)                 | `production` branch |
 
 Staging is a Vercel _preview_ deployment with `staging.worm.beer` pinned to the `main` branch,
-so it shares the Preview environment variables with PR previews. Production is the only thing
-reading the Production scope.
+so it shares the Preview environment variables with PR previews (Hobby has no custom
+environments). Production is the only thing reading the Production scope. Every backing service
+except the Pi is split along that line:
+
+| Service                    | Preview scope (staging + PR previews) | Production scope (worm.beer)        |
+| -------------------------- | ------------------------------------- | ----------------------------------- |
+| Clerk                      | `home-dash` **development** instance  | `home-dash` **production** instance |
+| Neon                       | `home-dash` project, `staging` branch | `home-dash` project, `main` branch  |
+| Pi                         | same `LEDBOARD_URL`                   | same `LEDBOARD_URL`                 |
+| `CLERK_AUTHORIZED_PARTIES` | `https://staging.worm.beer`           | `https://worm.beer`                 |
+
+The Neon `staging` branch is a copy-on-write fork of `main`; reset it from the parent in the Neon
+console whenever staging needs prod-shaped data again. Because the Pi is shared and verifies the
+forwarded Clerk token itself, the ledboard daemon has to trust **both** Clerk issuers.
+
+Vercel Authentication (Deployment Protection) is off: on Hobby it cannot exempt a preview branch
+domain, and with it on `staging.worm.beer` redirects everyone to Vercel SSO. Clerk still gates
+`/board`.
 
 ### Promoting staging to production
 
