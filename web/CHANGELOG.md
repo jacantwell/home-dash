@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/jacantwell/home-dash/compare/v0.2.2...v0.2.3) (2026-09-10)
+
+
+### Features
+
+* **auth:** add dedicated sign-in and sign-up pages ([#40](https://github.com/jacantwell/home-dash/issues/40)) ([317ef42](https://github.com/jacantwell/home-dash/commit/317ef426afab322c7e4b60bf3b738defc702aacf))
+
 ## [0.2.2](https://github.com/jacantwell/home-dash/compare/v0.2.1...v0.2.2) (2026-09-08)
 
 
