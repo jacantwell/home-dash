@@ -88,6 +88,6 @@ Every production deploy is explored by [Duku](https://duku.ai):
 PR previews are deliberately **not** explored: exploration runs at the environment level only,
 so a PR's signal comes from CI and the build it lands as.
 
-Configuration lives in repo settings: variables `DUKU_PRODUCT_ID`, `DUKU_API_URL` (sandbox for
-now) and secret `PLATFORM_API_KEY`. The action is pinned to an unreleased commit of
+Configuration lives in repo settings: variables `DUKU_PRODUCT_ID`, `DUKU_API_URL` (production
+platform) and secret `PLATFORM_API_KEY`. The action is pinned to an unreleased commit of
 `duku-ai/actions`; see the comment in the workflow.
