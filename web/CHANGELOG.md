@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/jacantwell/home-dash/compare/v0.2.3...v0.2.4) (2026-09-10)
+
+
+### Features
+
+* **etch:** rotary knobs, move queue, keyboard and wheel controls ([#44](https://github.com/jacantwell/home-dash/issues/44)) ([e724496](https://github.com/jacantwell/home-dash/commit/e7244967a09c076670b5af3f01dd4347682c4003))
+
 ## [0.2.3](https://github.com/jacantwell/home-dash/compare/v0.2.2...v0.2.3) (2026-09-10)
 
 
