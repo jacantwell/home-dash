@@ -74,16 +74,51 @@ release-please cuts SemVer releases automatically.
 
 ## Deployment
 
-Vercel via the GitHub integration: PRs get preview deployments, `main` goes to production.
+Vercel, via the GitHub integration. Three environments, and nothing reaches production
+without someone pressing a button:
+
+| Environment | URL                                            | Deployed from       |
+| ----------- | ---------------------------------------------- | ------------------- |
+| Preview     | `home-dash-git-<branch>-…vercel.app`           | every PR branch     |
+| Staging     | [staging.worm.beer](https://staging.worm.beer) | every `main` commit |
+| Production  | [worm.beer](https://worm.beer)                 | `production` branch |
+
+Staging is a Vercel _preview_ deployment with `staging.worm.beer` pinned to the `main` branch,
+so it shares the Preview environment variables with PR previews. Production is the only thing
+reading the Production scope.
+
+### Promoting staging to production
+
+Production tracks the `production` branch, which never moves on its own. Run the
+**Promote to production** workflow from the Actions tab (`workflow_dispatch`) to fast-forward it:
+
+```
+main ──auto──► staging.worm.beer
+ │
+ └─ Actions ▸ Promote to production ─(approval)─► git push --ff production ──► worm.beer
+```
+
+It refuses to promote a commit that has not landed on `main`, one whose CI did not pass
+(`skip-ci-check` overrides), or anything that is not a fast-forward of the current `production`.
+The approval gate is the `promote` GitHub Environment — _not_ `Production`, which belongs to
+Vercel's integration and would stall its deployment statuses if it carried a protection rule.
+
+Rolling back is the same button with an older `ref` and `allow-rollback` ticked — that is the
+only thing allowed to move `production` backwards, and it force-pushes with a lease. For the
+30-second case use **Instant Rollback** in the Vercel dashboard instead, then promote a real
+commit afterwards so the branch and the live alias agree again.
 
 ## Duku
 
 Every production deploy is explored by [Duku](https://duku.ai):
 
-- `duku-environment.yml` waits for the Vercel **Production** deployment of each `main` commit,
-  then runs the `environment` action against the `default` environment — Duku's name for a
-  product's production environment — labelling the build with the app version (`vX.Y.Z`, same
-  as `NEXT_PUBLIC_APP_VERSION`) and linking the PR preview builds that landed in it.
+- `duku-environment.yml` waits for the Vercel **Production** deployment of a commit, then runs
+  the `environment` action against the `default` environment — Duku's name for a product's
+  production environment — labelling the build with the app version (`vX.Y.Z`, same as
+  `NEXT_PUBLIC_APP_VERSION`) and linking the PR preview builds that landed in it.
+- It fires on promotion, not on landing, and it is `workflow_dispatch`-only: **Promote to
+  production** dispatches it with the SHA it just shipped. A `push:` trigger would never fire,
+  because pushes made with the `GITHUB_TOKEN` do not start workflow runs.
 
 PR previews are deliberately **not** explored: exploration runs at the environment level only,
 so a PR's signal comes from CI and the build it lands as.
