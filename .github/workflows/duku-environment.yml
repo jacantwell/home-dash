@@ -1,12 +1,22 @@
 # Records every commit that ships to production as a Duku build, labelled with
 # the app version, then explores + tests it. On push the action also links the
 # PR preview builds to the commit they landed as.
+#
+# Production is the `production` branch, not `main` — `main` deploys to staging
+# and only reaches here once `promote-to-production.yml` fast-forwards it.
+#
+# Dispatch-only on purpose. `promote-to-production.yml` moves `production` with
+# the GITHUB_TOKEN, and pushes made with that token do not trigger workflows, so
+# a `push:` trigger here would silently never fire. Promote dispatches us
+# instead, handing over the exact commit it shipped.
 name: Duku production
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to explore. Defaults to the tip of this ref.
+        required: false
 
 concurrency:
   group: duku-env-production
@@ -23,6 +33,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha || github.sha }}
 
       - name: Read app version
         id: version
@@ -36,7 +48,7 @@ jobs:
         id: vercel
         uses: ./.github/actions/wait-for-vercel
         with:
-          sha: ${{ github.sha }}
+          sha: ${{ inputs.sha || github.sha }}
           environment: Production
 
       - name: Explore production with Duku
