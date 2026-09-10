@@ -1,5 +1,10 @@
 # Opens/updates a release PR on every push to main. Merging it tags vX.Y.Z,
-# publishes a GitHub Release and updates CHANGELOG.md + package.json.
+# publishes a GitHub Release and updates CHANGELOG.md + package.json — and,
+# because Vercel deploys every `main` commit to staging, that release is the
+# one that gets published to Duku's staging environment and explored.
+#
+# Production is a separate button: promote-to-production.yml ships the same
+# tagged version and publishes it to Duku's production environment.
 name: Release
 
 on:
@@ -14,10 +19,30 @@ jobs:
   release-please:
     name: Release please
     runs-on: ubuntu-latest
+    outputs:
+      release-created: ${{ steps.release.outputs.web--release_created }}
+      tag: ${{ steps.release.outputs.web--tag_name }}
     steps:
       - uses: googleapis/release-please-action@v5
+        id: release
         with:
           # PAT so the release PR triggers required CI checks (GITHUB_TOKEN-authored PRs don't).
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # Only fires on the push that merged a release PR: ordinary merges still hit
+  # staging via Vercel, but Duku only ever sees tagged versions.
+  duku-staging:
+    name: Duku staging
+    needs: release-please
+    if: needs.release-please.outputs.release-created == 'true'
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/duku-environment.yml
+    with:
+      environment: staging
+      sha: ${{ github.sha }}
+      release-label: ${{ needs.release-please.outputs.tag }}
+    secrets: inherit
