@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom/vitest";
 
+import { configure } from "@testing-library/react";
 import { vi } from "vitest";
+
+// findBy* defaults to 1s, which a loaded CI runner misses on the slower renders.
+configure({ asyncUtilTimeout: 5000 });
 
 // Clerk needs a real browser + keys; tests only need the surface we render.
 vi.mock("@clerk/nextjs", async () => {
