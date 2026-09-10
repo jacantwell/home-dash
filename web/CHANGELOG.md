@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/jacantwell/home-dash/compare/v0.2.4...v0.2.5) (2026-09-10)
+
+
+### Features
+
+* **app:** apache-style 404 page ([#46](https://github.com/jacantwell/home-dash/issues/46)) ([8d258a6](https://github.com/jacantwell/home-dash/commit/8d258a6dc46ddcca0dd0260ee8de1dcaa3724e09))
+
 ## [0.2.4](https://github.com/jacantwell/home-dash/compare/v0.2.3...v0.2.4) (2026-09-10)
 
 
