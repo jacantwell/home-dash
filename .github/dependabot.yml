@@ -24,6 +24,6 @@ updates:
       day: monday
     ignore:
       # Pinned to an unreleased sha on purpose; a tag bump would be a downgrade.
-      - dependency-name: duku-ai/actions/*
+      - dependency-name: duku-ai/actions/environment
     commit-message:
       prefix: "ci"
