@@ -41,9 +41,9 @@ jobs:
 
       - name: Explore production with Duku
         id: duku
-        # Unreleased (0.4-to-be) code, pinned to duku-ai/actions main @ chrome-worker@40cbc46.
+        # Unreleased (0.4-to-be) code, pinned to duku-ai/actions main @ chrome-worker@7403cf1.
         # Move to a release tag (environment/vX.Y.Z) once one is cut. Dependabot is told to leave this alone.
-        uses: duku-ai/actions/environment@fc380ec6b7b367a6866808a4474463a48250dde6
+        uses: duku-ai/actions/environment@c3fecd5985c82f36a56ecf8f6ceabfcd54fe3da2
         with:
           api-key: ${{ secrets.PLATFORM_API_KEY }}
           product-id: ${{ vars.DUKU_PRODUCT_ID }}
