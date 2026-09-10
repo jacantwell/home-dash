@@ -76,6 +76,18 @@ decision: land a PR titled `feat!: release 1.0.0` (or set `"release-as": "1.0.0"
 
 Tags matching `v*` are protected: they can't be deleted or moved.
 
+### Branch rules
+
+Enforced by repository rulesets (Settings → Rules), not by convention:
+
+- `main`: PRs only, squash-merged, linear history, no force-push or deletion. **No review is
+  required** — merging is gated on CI alone: `Lint`, `Typecheck`, `Test`, `Build`, `Backend`,
+  `PR title` and `Vercel` must pass on the PR head. Anyone with write access can merge, which
+  includes the release PR, so anyone can cut a staging release.
+- `production`: can't be deleted. It only moves via the promote workflow (below), which is the
+  real gate — the branch itself has no push restriction, because GitHub won't let the Actions
+  token bypass one on a personal repo.
+
 ### Rules of thumb
 
 - One logical change per PR. If you can't write a single conventional title for it, split it.
@@ -89,7 +101,8 @@ Tags matching `v*` are protected: they can't be deleted or moved.
 - `main` deploys to **staging** ([staging.worm.beer](https://staging.worm.beer)) automatically.
 - **Production ([worm.beer](https://worm.beer)) is manual.** Merging does not ship it. Run the
   **Promote to production** workflow from the Actions tab, which fast-forwards the `production`
-  branch onto a commit already on staging. See README → Deployment.
+  branch onto a commit already on staging. The run waits for **@jacantwell** to approve it — the
+  `promote` environment's required reviewer — so nobody else can actually ship. See README → Deployment.
 - Duku explores each production deploy, on promotion rather than on landing (see README → Duku).
   PR previews are deliberately not explored. The check run it posts reflects whether the
   exploration completed, not whether it found issues.
