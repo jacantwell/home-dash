@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.7](https://github.com/jacantwell/home-dash/compare/v0.2.6...v0.2.7) (2026-09-11)
+
+
+### Features
+
+* sprite maker with a shared catalog, alembic migrations ([#50](https://github.com/jacantwell/home-dash/issues/50)) ([f025166](https://github.com/jacantwell/home-dash/commit/f02516637c46b168a1b698b6e9b082a3a21ec5a1))
+
 ## [0.2.6](https://github.com/jacantwell/home-dash/compare/v0.2.5...v0.2.6) (2026-09-10)
 
 
