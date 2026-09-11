@@ -26,6 +26,7 @@ import {
   SPRITE_PALETTE,
   SPRITE_SIZE,
   SPRITE_TRANSPARENT,
+  displayName,
 } from "@/lib/api";
 import { formatRelative } from "@/lib/time";
 
@@ -374,12 +375,12 @@ function Catalog({ sprites, loading, onOpen }: CatalogProps) {
           <button
             type="button"
             className="sprite-card"
-            title={`by ${s.author_name || "someone"}, ${formatRelative(s.created_at)}. Click to open.`}
+            title={`by ${displayName(s.author_name)}, ${formatRelative(s.created_at)}. Click to open.`}
             onClick={() => onOpen(s)}
           >
             <SpriteImage sprite={s} size={48} label={s.name} />
             <span className="sprite-card-name">:{s.name}:</span>
-            <span className="sprite-card-by">{s.author_name || "someone"}</span>
+            <span className="sprite-card-by">{displayName(s.author_name)}</span>
           </button>
         </li>
       ))}
