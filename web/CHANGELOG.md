@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.9](https://github.com/jacantwell/home-dash/compare/v0.2.8...v0.2.9) (2026-09-11)
+
+
+### Bug Fixes
+
+* stop leaking clerk user ids as author/sender names ([#54](https://github.com/jacantwell/home-dash/issues/54)) ([67d5bb5](https://github.com/jacantwell/home-dash/commit/67d5bb550a81f8b7f9083cd5ebbe5c7428882ce7))
+
 ## [0.2.8](https://github.com/jacantwell/home-dash/compare/v0.2.7...v0.2.8) (2026-09-11)
 
 
