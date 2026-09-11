@@ -1,16 +1,28 @@
-# Applies pending Alembic revisions to Neon. Staging follows `main`, production
-# follows the `production` branch (i.e. runs on promote). Both can also be run by
-# hand. Vercel builds in parallel, so revisions must stay compatible with the
-# version currently serving traffic.
+# Applies pending Alembic revisions to Neon. Staging follows `main`; production
+# is migrated by promote-to-production.yml as part of the promote (its push is
+# made with the GITHUB_TOKEN, which never triggers a `push:` here). Both can also
+# be run by hand. Vercel builds in parallel, so revisions must stay compatible
+# with the version currently serving traffic.
 name: Migrate database
 
 on:
   push:
-    branches: [main, production]
+    branches: [main]
     paths:
       - backend/migrations/**
       - backend/alembic.ini
       - .github/workflows/migrate.yml
+  workflow_call:
+    inputs:
+      target:
+        description: Which database to migrate — `staging` or `production`.
+        type: string
+        required: true
+      sha:
+        description: Commit whose migrations to apply. Defaults to the caller's ref.
+        type: string
+        required: false
+        default: ""
   workflow_dispatch:
     inputs:
       target:
@@ -21,7 +33,7 @@ on:
         default: staging
 
 concurrency:
-  group: migrate-${{ github.ref_name == 'production' && 'production' || (inputs.target || 'staging') }}
+  group: migrate-${{ inputs.target || 'staging' }}
   cancel-in-progress: false
 
 permissions:
@@ -29,15 +41,17 @@ permissions:
 
 jobs:
   migrate:
-    name: ${{ github.ref_name == 'production' && 'production' || (inputs.target || 'staging') }}
+    name: ${{ inputs.target || 'staging' }}
     runs-on: ubuntu-latest
     # db-staging / db-production hold DATABASE_URL; Preview/Production belong to Vercel.
-    environment: db-${{ github.ref_name == 'production' && 'production' || (inputs.target || 'staging') }}
+    environment: db-${{ inputs.target || 'staging' }}
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha || github.sha }}
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
