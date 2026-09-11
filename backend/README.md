@@ -26,7 +26,8 @@ The schema lives in `migrations/versions/` as Alembic revisions written in plain
 - CI applies the whole chain to a throwaway Postgres on every PR, so a broken revision
   fails the build before it gets near Neon.
 - `.github/workflows/migrate.yml` runs `make migrate` against the staging branch on every
-  push to `main` and against production on every push to `production` (i.e. on promote),
+  push to `main`, and `promote-to-production.yml` calls it against production as part of
+  every promote (the promote pushes with `GITHUB_TOKEN`, which never fires `push:` triggers),
   reading `DATABASE_URL` from the `db-staging` / `db-production` GitHub environments. It runs
   while Vercel is still building, so keep revisions backwards compatible with the
   version currently deployed (add columns nullable, drop things a release later).

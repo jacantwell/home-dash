@@ -153,11 +153,22 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # The push above is made with the GITHUB_TOKEN, which never triggers other
-  # workflows, so the Duku publish runs here as the second half of the promote
-  # rather than off a `push:` to `production`.
+  # workflows, so the migration and the Duku publish run here as the second
+  # half of the promote rather than off a `push:` to `production`.
+  migrate-production:
+    name: Migrate production
+    needs: promote
+    permissions:
+      contents: read
+    uses: ./.github/workflows/migrate.yml
+    with:
+      target: production
+      sha: ${{ needs.promote.outputs.sha }}
+    secrets: inherit
+
   duku-production:
     name: Duku production
-    needs: promote
+    needs: [promote, migrate-production]
     permissions:
       contents: read
       pull-requests: read
