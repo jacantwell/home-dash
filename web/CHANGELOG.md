@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.8](https://github.com/jacantwell/home-dash/compare/v0.2.7...v0.2.8) (2026-09-11)
+
+
+### Bug Fixes
+
+* **sprites:** stop exposing db ids in the catalog ([#52](https://github.com/jacantwell/home-dash/issues/52)) ([0fc561e](https://github.com/jacantwell/home-dash/commit/0fc561ed9b4577f058b0306225ad6784f9719611))
+
 ## [0.2.7](https://github.com/jacantwell/home-dash/compare/v0.2.6...v0.2.7) (2026-09-11)
 
 
