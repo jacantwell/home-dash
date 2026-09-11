@@ -160,7 +160,8 @@ class SpriteList(BaseModel):
 
 
 def sender_name_from(claims: Claims) -> str:
-    return str(claims.get("name") or claims["sub"])
+    # never fall back to `sub`: the Clerk user id is not a display name
+    return str(claims.get("name") or "")
 
 
 def create_app(settings: Settings, verifier: ClerkVerifier | None = None) -> FastAPI:

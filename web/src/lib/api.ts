@@ -261,3 +261,9 @@ export function saveSprite(
     fetchImpl,
   );
 }
+
+// Older rows stored the Clerk user id as the display name; never show it.
+export function displayName(name: string | null | undefined): string {
+  if (!name || name.startsWith("user_")) return "someone";
+  return name;
+}

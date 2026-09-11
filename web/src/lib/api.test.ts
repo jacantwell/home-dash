@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  displayName,
   ApiError,
   clampDuration,
   type Comment,
@@ -268,5 +269,17 @@ describe("paletteColor", () => {
     ["g", null],
   ])("maps %s to %s", (cell, expected) => {
     expect(paletteColor(cell)).toBe(expected);
+  });
+});
+
+describe("displayName", () => {
+  it.each([
+    ["Jasper", "Jasper"],
+    ["", "someone"],
+    [null, "someone"],
+    [undefined, "someone"],
+    ["user_2BzdY4CpVa1QGRZHCTmukdWRl", "someone"],
+  ])("%s -> %s", (input, expected) => {
+    expect(displayName(input)).toBe(expected);
   });
 });

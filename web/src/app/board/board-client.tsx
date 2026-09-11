@@ -22,6 +22,7 @@ import {
   MAX_MESSAGE_LENGTH,
   type Message,
   sendMessage,
+  displayName,
 } from "@/lib/api";
 import { formatAbsolute, formatRelative } from "@/lib/time";
 
@@ -332,7 +333,7 @@ function SentItems({ messages, loading, selectedId, onSelect }: SentItemsProps) 
                     {m.status}
                   </span>
                 </td>
-                <td>{m.sender_name || "someone"}</td>
+                <td>{displayName(m.sender_name)}</td>
                 <td>{m.text}</td>
                 <td className="muted hidden sm:table-cell">
                   <time dateTime={m.created_at} title={formatRelative(m.created_at)}>
@@ -354,7 +355,7 @@ function Preview({ message }: { message: Message }) {
     <div className="xp-preview" aria-label="Preview">
       <dl>
         <dt>From:</dt>
-        <dd>{message.sender_name || "someone"}</dd>
+        <dd>{displayName(message.sender_name)}</dd>
         <dt>To:</dt>
         <dd>{RECIPIENT}</dd>
         <dt>Sent:</dt>
