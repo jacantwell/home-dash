@@ -54,6 +54,57 @@ export interface EtchCleared extends EtchCursor {
   cleared: boolean;
 }
 
+// Sprites are a fixed 16x16 grid, one char per cell (row-major): "." is transparent,
+// 0-f indexes SPRITE_PALETTE. Mirrors api/sprites.py.
+export interface Sprite {
+  id: number;
+  name: string;
+  author_name: string;
+  w: number;
+  h: number;
+  pixels: string;
+  created_at: string;
+}
+
+export interface NewSprite {
+  name: string;
+  pixels: string;
+}
+
+export const SPRITE_SIZE = 16;
+export const SPRITE_CELLS = SPRITE_SIZE * SPRITE_SIZE;
+export const SPRITE_NAME_MAX = 32;
+export const SPRITE_NAME_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
+export const SPRITE_TRANSPARENT = ".";
+export const SPRITE_PALETTE = [
+  "#000000",
+  "#808080",
+  "#800000",
+  "#808000",
+  "#008000",
+  "#008080",
+  "#000080",
+  "#800080",
+  "#ffffff",
+  "#c0c0c0",
+  "#ff0000",
+  "#ffff00",
+  "#00ff00",
+  "#00ffff",
+  "#0000ff",
+  "#ff00ff",
+] as const;
+
+export function paletteChar(index: number): string {
+  return index.toString(16);
+}
+
+export function paletteColor(cell: string): string | null {
+  if (cell === SPRITE_TRANSPARENT) return null;
+  const index = parseInt(cell, 16);
+  return Number.isNaN(index) ? null : (SPRITE_PALETTE[index] ?? null);
+}
+
 export const MAX_MESSAGE_LENGTH = 200;
 export const MAX_COMMENT_LENGTH = 200;
 export const MAX_COMMENT_LINES = 5;
@@ -187,4 +238,27 @@ export function etchMove(dx: number, dy: number, fetchImpl?: FetchLike): Promise
 
 export function etchClear(fetchImpl?: FetchLike): Promise<EtchCleared> {
   return request<EtchCleared>("/api/etch/clear", null, { method: "POST" }, fetchImpl);
+}
+
+export async function listSprites(limit = 200, fetchImpl?: FetchLike): Promise<Sprite[]> {
+  const body = await request<{ sprites: Sprite[] }>(
+    `/api/sprites?limit=${limit}`,
+    null,
+    { method: "GET" },
+    fetchImpl,
+  );
+  return body.sprites;
+}
+
+export function saveSprite(
+  token: string,
+  sprite: NewSprite,
+  fetchImpl?: FetchLike,
+): Promise<Sprite> {
+  return request<Sprite>(
+    "/api/sprites",
+    token,
+    { method: "POST", body: JSON.stringify(sprite) },
+    fetchImpl,
+  );
 }
