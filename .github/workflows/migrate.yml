@@ -1,0 +1,55 @@
+# Applies pending Alembic revisions to Neon. Staging follows `main`, production
+# follows the `production` branch (i.e. runs on promote). Both can also be run by
+# hand. Vercel builds in parallel, so revisions must stay compatible with the
+# version currently serving traffic.
+name: Migrate database
+
+on:
+  push:
+    branches: [main, production]
+    paths:
+      - backend/migrations/**
+      - backend/alembic.ini
+      - .github/workflows/migrate.yml
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which database to migrate
+        type: choice
+        options: [staging, production]
+        required: true
+        default: staging
+
+concurrency:
+  group: migrate-${{ github.ref_name == 'production' && 'production' || (inputs.target || 'staging') }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: ${{ github.ref_name == 'production' && 'production' || (inputs.target || 'staging') }}
+    runs-on: ubuntu-latest
+    # db-staging / db-production hold DATABASE_URL; Preview/Production belong to Vercel.
+    environment: db-${{ github.ref_name == 'production' && 'production' || (inputs.target || 'staging') }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --frozen
+      - name: Show pending revisions
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv run alembic current
+          uv run alembic history --indicate-current
+      - name: Upgrade to head
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: make migrate

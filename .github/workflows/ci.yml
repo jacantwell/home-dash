@@ -98,6 +98,15 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: pw
+          POSTGRES_DB: neondb
+        ports:
+          - 5432:5432
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
@@ -107,3 +116,12 @@ jobs:
       - run: uv sync --frozen
       - run: make lint
       - run: make test
+      # The whole chain must apply to an empty database, step back, and re-apply.
+      - name: Migrations apply cleanly
+        env:
+          DATABASE_URL: postgresql://postgres:pw@localhost:5432/neondb
+        run: |
+          make migrate
+          make migrate-down
+          make migrate
+          test "$(uv run alembic current 2>/dev/null | grep -c head)" = 1
