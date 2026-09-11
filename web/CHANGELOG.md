@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.12](https://github.com/jacantwell/home-dash/compare/v0.2.11...v0.2.12) (2026-09-11)
+
+
+### Bug Fixes
+
+* **sprites:** release the name hint removal ([#62](https://github.com/jacantwell/home-dash/issues/62)) ([1887b51](https://github.com/jacantwell/home-dash/commit/1887b51e6be2a775e1cba12a9dfccf5d85a0f6fe))
+
 ## [0.2.11](https://github.com/jacantwell/home-dash/compare/v0.2.10...v0.2.11) (2026-09-11)
 
 
