@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -536,7 +537,8 @@ function Knob({
   // Native wheel listener: React wheel handlers are passive at the root, and
   // turning the knob must not scroll the page. Trackpads fire many tiny deltas,
   // so accumulate instead of stepping per event. Up or right = clockwise.
-  useEffect(() => {
+  // Layout effect so the listener exists the moment the knob is in the DOM.
+  useLayoutEffect(() => {
     const el = knobRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
