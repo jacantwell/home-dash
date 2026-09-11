@@ -15,6 +15,8 @@ describe("Home page", () => {
   it.each([
     ["board/", "/board"],
     ["chatroom/", "/chatroom"],
+    ["etch/", "/etch"],
+    ["sprites/", "/sprites"],
     ["terms.html", "/terms"],
   ])("lists %s pointing at %s", (name, href) => {
     render(<Page />);

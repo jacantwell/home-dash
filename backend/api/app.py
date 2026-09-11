@@ -10,6 +10,17 @@ from api.board import EtchResult, etch_clear, etch_move, etch_state, send_to_boa
 from api.comments import Comment, CommentRepo, get_comment_repo
 from api.config import Settings
 from api.db import Message, MessageRepo, get_repo
+from api.sprites import (
+    NAME_MAX,
+    NAME_PATTERN,
+    PIXELS_PATTERN,
+    SPRITE_CELLS,
+    SPRITE_SIZE,
+    Sprite,
+    SpriteNameTaken,
+    SpriteRepo,
+    get_sprite_repo,
+)
 
 TEXT_MAX = 200
 DURATION_MAX_S = 60
@@ -128,6 +139,26 @@ class CommentList(BaseModel):
     comments: list[Comment] = Field(default_factory=list)
 
 
+class SpriteIn(BaseModel):
+    name: str = Field(pattern=NAME_PATTERN, max_length=NAME_MAX)
+    pixels: str
+
+    @field_validator("pixels")
+    @classmethod
+    def _validate_pixels(cls, value: str) -> str:
+        if len(value) != SPRITE_CELLS:
+            raise ValueError(f"pixels must be exactly {SPRITE_CELLS} cells")
+        if not PIXELS_PATTERN.match(value):
+            raise ValueError("pixels must be '.' or a hex digit per cell")
+        if value.count(".") == SPRITE_CELLS:
+            raise ValueError("sprite must not be empty")
+        return value
+
+
+class SpriteList(BaseModel):
+    sprites: list[Sprite] = Field(default_factory=list)
+
+
 def sender_name_from(claims: Claims) -> str:
     return str(claims.get("name") or claims["sub"])
 
@@ -223,5 +254,33 @@ def create_app(settings: Settings, verifier: ClerkVerifier | None = None) -> Fas
         repo: Annotated[CommentRepo, Depends(get_comment_repo)],
     ) -> Comment:
         return repo.insert(post_slug=slug, color=body.color, text=body.text)
+
+    # sprites: anyone can browse the catalog, saving needs a login
+    @app.get("/api/sprites", response_model=SpriteList)
+    def list_sprites(
+        repo: Annotated[SpriteRepo, Depends(get_sprite_repo)],
+        limit: int = Query(200, ge=1, le=500),
+    ) -> SpriteList:
+        return SpriteList(sprites=repo.list(limit))
+
+    @app.post("/api/sprites", response_model=Sprite, status_code=status.HTTP_201_CREATED)
+    def create_sprite(
+        body: SpriteIn,
+        claims: Annotated[Claims, Depends(current_user)],
+        repo: Annotated[SpriteRepo, Depends(get_sprite_repo)],
+    ) -> Sprite:
+        try:
+            return repo.insert(
+                name=body.name,
+                clerk_user_id=claims["sub"],
+                author_name=sender_name_from(claims),
+                w=SPRITE_SIZE,
+                h=SPRITE_SIZE,
+                pixels=body.pixels,
+            )
+        except SpriteNameTaken:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, f"a sprite called '{body.name}' already exists"
+            ) from None
 
     return app

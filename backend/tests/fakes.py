@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from api.comments import COMMENT_TTL, Comment
 from api.db import Message, Status
+from api.sprites import Sprite, SpriteNameTaken
 
 
 class InMemoryRepo:
@@ -68,3 +69,39 @@ class InMemoryCommentRepo:
             if c.post_slug == post_slug and c.created_at >= self.now - COMMENT_TTL
         ]
         return sorted(live, key=lambda c: (c.created_at, c.id))[:limit]
+
+
+class InMemorySpriteRepo:
+    """Newest-first like the SQL; unique names raise like the DB constraint would."""
+
+    def __init__(self) -> None:
+        self.rows: list[Sprite] = []
+        self._clock = datetime(2026, 1, 1, tzinfo=UTC)
+
+    def insert(
+        self,
+        *,
+        name: str,
+        clerk_user_id: str,
+        author_name: str,
+        w: int,
+        h: int,
+        pixels: str,
+    ) -> Sprite:
+        if any(s.name == name for s in self.rows):
+            raise SpriteNameTaken(name)
+        self._clock += timedelta(seconds=1)
+        sprite = Sprite(
+            id=len(self.rows) + 1,
+            name=name,
+            author_name=author_name,
+            w=w,
+            h=h,
+            pixels=pixels,
+            created_at=self._clock,
+        )
+        self.rows.append(sprite)
+        return sprite
+
+    def list(self, limit: int) -> list[Sprite]:
+        return sorted(self.rows, key=lambda s: (s.created_at, s.id), reverse=True)[:limit]

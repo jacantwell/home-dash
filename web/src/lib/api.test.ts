@@ -11,9 +11,14 @@ import {
   getEtchState,
   listComments,
   listMessages,
+  listSprites,
   type Message,
+  paletteColor,
   postComment,
+  saveSprite,
   sendMessage,
+  type Sprite,
+  SPRITE_CELLS,
 } from "./api";
 
 const message: Message = {
@@ -212,5 +217,57 @@ describe("etchClear", () => {
     const fetchImpl = fakeFetch(200, { cleared: true, x: 68, y: 16 });
     await expect(etchClear(fetchImpl)).resolves.toEqual({ cleared: true, x: 68, y: 16 });
     expect(fetchImpl.mock.calls[0][0]).toBe("/api/etch/clear");
+  });
+});
+
+const sprite: Sprite = {
+  id: 1,
+  name: "smiley",
+  author_name: "Jasper",
+  w: 16,
+  h: 16,
+  pixels: "b" + ".".repeat(SPRITE_CELLS - 1),
+  created_at: "2026-09-11T12:00:00Z",
+};
+
+describe("listSprites", () => {
+  it("fetches the catalog without any auth header and passes limit", async () => {
+    const fetchImpl = fakeFetch(200, { sprites: [sprite] });
+    expect(await listSprites(50, fetchImpl)).toEqual([sprite]);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("/api/sprites?limit=50");
+    expect(init?.headers).not.toHaveProperty("Authorization");
+  });
+});
+
+describe("saveSprite", () => {
+  it("posts name and pixels with the bearer token", async () => {
+    const fetchImpl = fakeFetch(201, sprite);
+    const result = await saveSprite("tok", { name: "smiley", pixels: sprite.pixels }, fetchImpl);
+    expect(result).toEqual(sprite);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("/api/sprites");
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toMatchObject({ Authorization: "Bearer tok" });
+    expect(JSON.parse(String(init?.body))).toEqual({ name: "smiley", pixels: sprite.pixels });
+  });
+
+  it("surfaces a 409 as an ApiError with the detail", async () => {
+    const fetchImpl = fakeFetch(409, { detail: "a sprite called 'smiley' already exists" });
+    await expect(
+      saveSprite("tok", { name: "smiley", pixels: sprite.pixels }, fetchImpl),
+    ).rejects.toMatchObject({ status: 409, message: "a sprite called 'smiley' already exists" });
+  });
+});
+
+describe("paletteColor", () => {
+  it.each([
+    [".", null],
+    ["0", "#000000"],
+    ["a", "#ff0000"],
+    ["f", "#ff00ff"],
+    ["g", null],
+  ])("maps %s to %s", (cell, expected) => {
+    expect(paletteColor(cell)).toBe(expected);
   });
 });

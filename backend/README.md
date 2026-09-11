@@ -13,7 +13,23 @@ make dev           # uvicorn on http://localhost:8000 with reload
 make test          # pytest (no network, no DB)
 make lint          # ruff check + format check
 make fmt           # ruff format + autofix
+make migrate       # alembic upgrade head against DATABASE_URL
 ```
+
+## Schema
+
+The schema lives in `migrations/versions/` as Alembic revisions written in plain SQL
+(`op.execute`). Neon has no other source of truth: never create tables in the console.
+
+- `make migration m="add foo"` scaffolds a revision; fill in `upgrade()`/`downgrade()`.
+- `make migrate` applies pending revisions to whatever `DATABASE_URL` resolves to.
+- CI applies the whole chain to a throwaway Postgres on every PR, so a broken revision
+  fails the build before it gets near Neon.
+- `.github/workflows/migrate.yml` runs `make migrate` against the staging branch on every
+  push to `main` and against production on every push to `production` (i.e. on promote),
+  reading `DATABASE_URL` from the `db-staging` / `db-production` GitHub environments. It runs
+  while Vercel is still building, so keep revisions backwards compatible with the
+  version currently deployed (add columns nullable, drop things a release later).
 
 `next dev` on :3000 rewrites `/api/:path*` to :8000, so the frontend talks to this straight away.
 
@@ -21,28 +37,30 @@ make fmt           # ruff format + autofix
 
 Read from the process env, then `../.env.local` (the repo's), then `backend/.env` (later wins).
 
-| Var                                 | Purpose                                                                  |
-| ----------------------------------- | ------------------------------------------------------------------------ |
-| `DATABASE_URL`                      | Neon connection string (pooled). One connection per request.             |
-| `LEDBOARD_URL`                      | Base URL of the Pi daemon, default `http://localhost:8080`.              |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk issuer is derived from it (`pk_test_<b64(frontend-api-host$)>`).   |
-| `CLERK_ISSUER`                      | Optional override of the derived issuer.                                 |
+| Var                                 | Purpose                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                      | Neon connection string (pooled). One connection per request.                                            |
+| `LEDBOARD_URL`                      | Base URL of the Pi daemon, default `http://localhost:8080`.                                             |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk issuer is derived from it (`pk_test_<b64(frontend-api-host$)>`).                                  |
+| `CLERK_ISSUER`                      | Optional override of the derived issuer.                                                                |
 | `CLERK_AUTHORIZED_PARTIES`          | Comma list of origins allowed in the token's `azp` and in etch `Origin`/`Referer`. Empty = don't check. |
 
 Without an issuer the service still boots (`/api/healthz` works) and protected routes answer 503.
 
 ## Endpoints
 
-| Method | Path                                      | Auth | Response                                           |
-| ------ | ----------------------------------------- | ---- | -------------------------------------------------- |
-| GET    | `/api/healthz`                            | no   | `200 {"ok": true}`                                 |
-| GET    | `/api/messages?limit=20`                  | yes  | `200 {"messages": [Message]}` newest first, 1..100 |
-| POST   | `/api/messages`                           | yes  | `202 Message`; `429` passthrough if the Pi says so |
-| GET    | `/api/chatroom/{slug}/comments?limit=100` | no   | `200 {"comments": [Comment]}` oldest first, 1..200 |
-| POST   | `/api/chatroom/{slug}/comments`           | no   | `201 Comment`                                      |
-| GET    | `/api/etch`                               | frontend | `200` sketch state, proxied from the Pi         |
-| POST   | `/api/etch/move`                          | frontend | `200 {"x","y"}`; nudges the stylus             |
+| Method | Path                                      | Auth     | Response                                           |
+| ------ | ----------------------------------------- | -------- | -------------------------------------------------- |
+| GET    | `/api/healthz`                            | no       | `200 {"ok": true}`                                 |
+| GET    | `/api/messages?limit=20`                  | yes      | `200 {"messages": [Message]}` newest first, 1..100 |
+| POST   | `/api/messages`                           | yes      | `202 Message`; `429` passthrough if the Pi says so |
+| GET    | `/api/chatroom/{slug}/comments?limit=100` | no       | `200 {"comments": [Comment]}` oldest first, 1..200 |
+| POST   | `/api/chatroom/{slug}/comments`           | no       | `201 Comment`                                      |
+| GET    | `/api/etch`                               | frontend | `200` sketch state, proxied from the Pi            |
+| POST   | `/api/etch/move`                          | frontend | `200 {"x","y"}`; nudges the stylus                 |
 | POST   | `/api/etch/clear`                         | frontend | `200 {"cleared","x","y"}`; shakes the screen clean |
+| GET    | `/api/sprites?limit=200`                  | no       | `200 {"sprites": [Sprite]}` newest first, 1..500   |
+| POST   | `/api/sprites`                            | yes      | `201 Sprite`; `409` if the name is taken           |
 
 POST body: `{"text": "1..200 chars after trim", "color": "#rrggbb" | null, "duration_s": 1..60 | null}`.
 `duration_s` is how many seconds the board shows it for (scrolling text loops until it elapses);
@@ -83,3 +101,16 @@ Comment = {id, post_slug, color, text, created_at, expires_at}
 The `messages` and `blog_comments` tables already exist in Neon; `schema.sql` is a reference copy,
 nothing migrates. `blog_comments` keeps its name because renaming it would need a migration the
 service does not run.
+
+### Sprites
+
+Little 16x16 pixel-art things, saved globally so everyone sees the same catalog (the plan is
+to type them into board messages as `:name:`). POST body:
+`{"name": "^[a-z0-9]+(?:_[a-z0-9]+)*$ max 32", "pixels": "256 chars"}` where each char is a
+cell, row-major: `.` is transparent, `0`-`f` indexes the 16-colour palette in `api/sprites.py`.
+An all-transparent sprite is a 422; a duplicate name is a 409. The author's Clerk name is
+stored and returned, the Clerk user id is stored but never returned.
+
+```
+Sprite = {id, name, author_name, w, h, pixels, created_at}
+```

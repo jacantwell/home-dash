@@ -27,6 +27,13 @@ const ENTRIES = [
     description: "Notes from the house; reply anonymously, PictoChat style",
   },
   {
+    href: "/sprites",
+    name: "sprites/",
+    icon: "folder",
+    size: "-",
+    description: "Draw 16x16 pixel-art sprites and browse the house catalog",
+  },
+  {
     href: "/terms",
     name: "terms.html",
     icon: "document",
