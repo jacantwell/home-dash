@@ -254,13 +254,13 @@ def test_post_passes_through_board_429(
     assert "429" in repo.rows[0].error
 
 
-def test_sender_name_falls_back_to_sub(
+def test_sender_name_blank_without_name_claim(
     client: TestClient, make_token: TokenFactory, board: respx.MockRouter
 ) -> None:
     board.post(BOARD_TEXT_URL).respond(202)
     headers = {"Authorization": f"Bearer {make_token(sub='user_xyz')}"}
     response = client.post("/api/messages", json={"text": "hello"}, headers=headers)
-    assert response.json()["sender_name"] == "user_xyz"
+    assert response.json()["sender_name"] == ""
 
 
 # --- listing ------------------------------------------------------------------------
