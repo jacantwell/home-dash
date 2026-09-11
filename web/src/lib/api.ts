@@ -57,7 +57,6 @@ export interface EtchCleared extends EtchCursor {
 // Sprites are a fixed 16x16 grid, one char per cell (row-major): "." is transparent,
 // 0-f indexes SPRITE_PALETTE. Mirrors api/sprites.py.
 export interface Sprite {
-  id: number;
   name: string;
   author_name: string;
   w: number;

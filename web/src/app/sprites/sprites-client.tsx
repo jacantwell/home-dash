@@ -370,7 +370,7 @@ function Catalog({ sprites, loading, onOpen }: CatalogProps) {
   return (
     <ul className="sprite-catalog" aria-label="Catalog">
       {sprites.map((s) => (
-        <li key={s.id}>
+        <li key={s.name}>
           <button
             type="button"
             className="sprite-card"

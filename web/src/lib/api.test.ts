@@ -221,7 +221,6 @@ describe("etchClear", () => {
 });
 
 const sprite: Sprite = {
-  id: 1,
   name: "smiley",
   author_name: "Jasper",
   w: 16,
