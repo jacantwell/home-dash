@@ -35,11 +35,10 @@ PALETTE = [
     "#ff00ff",
 ]
 
-_COLUMNS = "id, name, author_name, w, h, pixels, created_at"
+_COLUMNS = "name, author_name, w, h, pixels, created_at"
 
 
 class Sprite(BaseModel):
-    id: int
     name: str
     author_name: str
     w: int

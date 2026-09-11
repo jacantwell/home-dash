@@ -7,7 +7,6 @@ import { type Sprite, SPRITE_CELLS } from "@/lib/api";
 import { SpriteMaker } from "./sprites-client";
 
 const existing: Sprite = {
-  id: 1,
   name: "smiley",
   author_name: "Jasper",
   w: 16,
@@ -147,7 +146,7 @@ describe("SpriteMaker", () => {
   });
 
   it("saves with the bearer token and prepends the sprite to the catalog", async () => {
-    const created: Sprite = { ...existing, id: 2, name: "dot", pixels: "0" + ".".repeat(255) };
+    const created: Sprite = { ...existing, name: "dot", pixels: "0" + ".".repeat(255) };
     fetchMock.mockResolvedValueOnce(jsonResponse(201, created));
     renderMaker();
     await screen.findByRole("list", { name: "Catalog" });

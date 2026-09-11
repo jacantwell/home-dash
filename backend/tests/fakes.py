@@ -92,7 +92,6 @@ class InMemorySpriteRepo:
             raise SpriteNameTaken(name)
         self._clock += timedelta(seconds=1)
         sprite = Sprite(
-            id=len(self.rows) + 1,
             name=name,
             author_name=author_name,
             w=w,
@@ -104,4 +103,4 @@ class InMemorySpriteRepo:
         return sprite
 
     def list(self, limit: int) -> list[Sprite]:
-        return sorted(self.rows, key=lambda s: (s.created_at, s.id), reverse=True)[:limit]
+        return sorted(self.rows, key=lambda s: s.created_at, reverse=True)[:limit]
