@@ -280,7 +280,7 @@ export function SpriteMaker({ signedIn, getToken }: SpriteMakerProps) {
               spellCheck={false}
             />
             <span className="flex justify-between gap-2 text-[#6d6a5e]">
-              <span>a-z, 0-9 and _ only. Shows up in messages as :{name || "name"}:</span>
+              <span>a-z, 0-9 and _ only.</span>
               <span
                 aria-label="Name length"
                 className={name.length >= SPRITE_NAME_MAX ? "text-[#800000]" : undefined}
