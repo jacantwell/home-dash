@@ -279,8 +279,14 @@ export function SpriteMaker({ signedIn, getToken }: SpriteMakerProps) {
               autoComplete="off"
               spellCheck={false}
             />
-            <span className="text-[#6d6a5e]">
-              a-z, 0-9 and _ only. Shows up in messages as :{name || "name"}:
+            <span className="flex justify-between gap-2 text-[#6d6a5e]">
+              <span>a-z, 0-9 and _ only. Shows up in messages as :{name || "name"}:</span>
+              <span
+                aria-label="Name length"
+                className={name.length >= SPRITE_NAME_MAX ? "text-[#800000]" : undefined}
+              >
+                {name.length}/{SPRITE_NAME_MAX}
+              </span>
             </span>
           </label>
         </div>
