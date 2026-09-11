@@ -43,6 +43,8 @@ Without an issuer the service still boots (`/api/healthz` works) and protected r
 | GET    | `/api/etch`                               | frontend | `200` sketch state, proxied from the Pi         |
 | POST   | `/api/etch/move`                          | frontend | `200 {"x","y"}`; nudges the stylus             |
 | POST   | `/api/etch/clear`                         | frontend | `200 {"cleared","x","y"}`; shakes the screen clean |
+| GET    | `/api/sprites?limit=200`                  | no   | `200 {"sprites": [Sprite]}` newest first, 1..500   |
+| POST   | `/api/sprites`                            | yes  | `201 Sprite`; `409` if the name is taken           |
 
 POST body: `{"text": "1..200 chars after trim", "color": "#rrggbb" | null, "duration_s": 1..60 | null}`.
 `duration_s` is how many seconds the board shows it for (scrolling text loops until it elapses);
@@ -83,3 +85,16 @@ Comment = {id, post_slug, color, text, created_at, expires_at}
 The `messages` and `blog_comments` tables already exist in Neon; `schema.sql` is a reference copy,
 nothing migrates. `blog_comments` keeps its name because renaming it would need a migration the
 service does not run.
+
+### Sprites
+
+Little 16x16 pixel-art things, saved globally so everyone sees the same catalog (the plan is
+to type them into board messages as `:name:`). POST body:
+`{"name": "^[a-z0-9]+(?:_[a-z0-9]+)*$ max 32", "pixels": "256 chars"}` where each char is a
+cell, row-major: `.` is transparent, `0`-`f` indexes the 16-colour palette in `api/sprites.py`.
+An all-transparent sprite is a 422; a duplicate name is a 409. The author's Clerk name is
+stored and returned, the Clerk user id is stored but never returned.
+
+```
+Sprite = {id, name, author_name, w, h, pixels, created_at}
+```
