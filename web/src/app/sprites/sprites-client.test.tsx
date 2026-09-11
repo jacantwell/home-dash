@@ -145,6 +145,17 @@ describe("SpriteMaker", () => {
     expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue(expected);
   });
 
+  it.each([
+    ["", "0/32"],
+    ["cat", "3/32"],
+    ["x".repeat(40), "32/32"],
+  ])("shows the name length counter for %j as %s", async (typed, expected) => {
+    renderMaker();
+    await screen.findByRole("list", { name: "Catalog" });
+    if (typed) await userEvent.type(screen.getByRole("textbox", { name: "Name" }), typed);
+    expect(screen.getByLabelText("Name length")).toHaveTextContent(expected);
+  });
+
   it("saves with the bearer token and prepends the sprite to the catalog", async () => {
     const created: Sprite = { ...existing, name: "dot", pixels: "0" + ".".repeat(255) };
     fetchMock.mockResolvedValueOnce(jsonResponse(201, created));
