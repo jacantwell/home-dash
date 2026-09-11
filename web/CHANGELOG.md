@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.10](https://github.com/jacantwell/home-dash/compare/v0.2.9...v0.2.10) (2026-09-11)
+
+
+### Bug Fixes
+
+* **etch:** attach the knob wheel listener in a layout effect ([#56](https://github.com/jacantwell/home-dash/issues/56)) ([9e62394](https://github.com/jacantwell/home-dash/commit/9e623949668a9048d9f244af540af6085a1ed8e8))
+
 ## [0.2.9](https://github.com/jacantwell/home-dash/compare/v0.2.8...v0.2.9) (2026-09-11)
 
 
