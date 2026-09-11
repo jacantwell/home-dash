@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.11](https://github.com/jacantwell/home-dash/compare/v0.2.10...v0.2.11) (2026-09-11)
+
+
+### Features
+
+* **sprites:** enforce the name limit in the database ([#59](https://github.com/jacantwell/home-dash/issues/59)) ([499a891](https://github.com/jacantwell/home-dash/commit/499a8911165dec61342f70fca5745b6936a155de))
+
 ## [0.2.10](https://github.com/jacantwell/home-dash/compare/v0.2.9...v0.2.10) (2026-09-11)
 
 
