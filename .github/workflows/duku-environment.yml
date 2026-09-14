@@ -103,9 +103,9 @@ jobs:
 
       - name: Publish ${{ steps.release.outputs.label }} to Duku ${{ steps.env.outputs.duku }}
         id: duku
-        # Unreleased (0.4-to-be) code, pinned to duku-ai/actions main @ chrome-worker@7403cf1.
+        # Unreleased (0.4-to-be) code, pinned to duku-ai/actions main @ chrome-worker@e876154.
         # Move to a release tag (environment/vX.Y.Z) once one is cut. Dependabot is told to leave this alone.
-        uses: duku-ai/actions/environment@c3fecd5985c82f36a56ecf8f6ceabfcd54fe3da2
+        uses: duku-ai/actions/environment@2483e868cc93714fba59098ca73717f0c21b780a
         with:
           api-key: ${{ secrets.PLATFORM_API_KEY }}
           product-id: ${{ vars.DUKU_PRODUCT_ID }}
