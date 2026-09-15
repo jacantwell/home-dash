@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.13](https://github.com/jacantwell/home-dash/compare/v0.2.12...v0.2.13) (2026-09-15)
+
+
+### Bug Fixes
+
+* **web:** fall back to "dev" in the 404 server signature ([#64](https://github.com/jacantwell/home-dash/issues/64)) ([7896884](https://github.com/jacantwell/home-dash/commit/78968847a6a4216ee9ffd499679db1fae6536313))
+
 ## [0.2.12](https://github.com/jacantwell/home-dash/compare/v0.2.11...v0.2.12) (2026-09-11)
 
 
