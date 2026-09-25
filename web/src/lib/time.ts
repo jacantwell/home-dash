@@ -35,3 +35,52 @@ export function formatApacheDay(iso: string): string {
   const month = MONTHS[Number(m) - 1];
   return month && y && d ? `${d}-${month}-${y}` : iso;
 }
+
+// The house is in London whatever the viewer's laptop says.
+const LONDON = "Europe/London";
+const eventDay = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  timeZone: LONDON,
+});
+const eventTime = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: LONDON,
+});
+// All-day dates are pinned to UTC noon so no timezone can move them a day.
+const plainDay = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+
+function formatPlainDay(iso: string, offsetDays = 0): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return plainDay.format(new Date(Date.UTC(y, m - 1, d + offsetDays, 12)));
+}
+
+/** "Fri 3 Oct, 19:30–21:00", "Sat 4 Oct (all day)", or a range across days. */
+export function formatEventWhen(event: { start: string; end: string; all_day: boolean }): string {
+  if (event.all_day) {
+    const first = formatPlainDay(event.start);
+    const last = formatPlainDay(event.end, -1); // Google's end date is exclusive
+    return first === last ? `${first} (all day)` : `${first} – ${last}`;
+  }
+  const start = new Date(event.start);
+  const end = new Date(event.end);
+  const startDay = eventDay.format(start);
+  const endDay = eventDay.format(end);
+  const range =
+    startDay === endDay
+      ? `${eventTime.format(start)}–${eventTime.format(end)}`
+      : `${eventTime.format(start)} – ${endDay} ${eventTime.format(end)}`;
+  return `${startDay}, ${range}`;
+}
+
+/** Today in London as YYYY-MM-DD, for date inputs. */
+export function londonToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: LONDON }).format(now);
+}

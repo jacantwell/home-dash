@@ -104,6 +104,30 @@ export function paletteColor(cell: string): string | null {
   return Number.isNaN(index) ? null : (SPRITE_PALETTE[index] ?? null);
 }
 
+// House calendar events live in Google; the backend proxies them. `start`/`end` are
+// ISO dateTimes, or YYYY-MM-DD when all_day (end exclusive). Mirrors api/calendar.py.
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  all_day: boolean;
+  location: string | null;
+  link: string | null;
+}
+
+// Times are HH:MM in Europe/London; no start_time = all day.
+export interface NewCalendarEvent {
+  title: string;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+}
+
+export const MAX_EVENT_TITLE_LENGTH = 100;
+export const MAX_EVENT_LOCATION_LENGTH = 200;
+
 export const MAX_MESSAGE_LENGTH = 200;
 export const MAX_COMMENT_LENGTH = 200;
 export const MAX_COMMENT_LINES = 5;
@@ -258,6 +282,33 @@ export function saveSprite(
     "/api/sprites",
     token,
     { method: "POST", body: JSON.stringify(sprite) },
+    fetchImpl,
+  );
+}
+
+export async function listEvents(
+  token: string,
+  limit = 20,
+  fetchImpl?: FetchLike,
+): Promise<CalendarEvent[]> {
+  const body = await request<{ events: CalendarEvent[] }>(
+    `/api/events?limit=${limit}`,
+    token,
+    { method: "GET" },
+    fetchImpl,
+  );
+  return body.events;
+}
+
+export function createEvent(
+  token: string,
+  event: NewCalendarEvent,
+  fetchImpl?: FetchLike,
+): Promise<CalendarEvent> {
+  return request<CalendarEvent>(
+    "/api/events",
+    token,
+    { method: "POST", body: JSON.stringify(event) },
     fetchImpl,
   );
 }

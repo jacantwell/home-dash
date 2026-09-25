@@ -112,6 +112,19 @@ GGG...GGG...
 .#SS#Y#.........
 .#SSS##.........
 .####...........`,
+  calendar: `
+.##############.
+.#RRRRRRRRRRRR#.
+.#RRWRRRRRRWRR#.
+.##############.
+.#WWWWWWWWWWWW#.
+.#WgWgWgWgWgWW#.
+.#WWWWWWWWWWWW#.
+.#WgWgWgWOWgWW#.
+.#WWWWWWWWWWWW#.
+.#WgWgWgWgWgWW#.
+.#WWWWWWWWWWWW#.
+.##############.`,
   refresh: `
 ...GGGGGG....
 ..G......G.G.
