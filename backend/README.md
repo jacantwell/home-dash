@@ -45,6 +45,8 @@ Read from the process env, then `../.env.local` (the repo's), then `backend/.env
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk issuer is derived from it (`pk_test_<b64(frontend-api-host$)>`).                                  |
 | `CLERK_ISSUER`                      | Optional override of the derived issuer.                                                                |
 | `CLERK_AUTHORIZED_PARTIES`          | Comma list of origins allowed in the token's `azp` and in etch `Origin`/`Referer`. Empty = don't check. |
+| `GOOGLE_CALENDAR_ID`                | The house calendar's id (`...@group.calendar.google.com`). Preview/dev point at a test calendar.        |
+| `GOOGLE_SERVICE_ACCOUNT_JSON`       | The `home-dash-writer` service account's whole json key, on one line.                                   |
 
 Without an issuer the service still boots (`/api/healthz` works) and protected routes answer 503.
 
@@ -62,6 +64,8 @@ Without an issuer the service still boots (`/api/healthz` works) and protected r
 | POST   | `/api/etch/clear`                         | frontend | `200 {"cleared","x","y"}`; shakes the screen clean |
 | GET    | `/api/sprites?limit=200`                  | no       | `200 {"sprites": [Sprite]}` newest first, 1..500   |
 | POST   | `/api/sprites`                            | yes      | `201 Sprite`; `409` if the name is taken           |
+| GET    | `/api/events?limit=20`                    | yes      | `200 {"events": [CalendarEvent]}` soonest, 1..100  |
+| POST   | `/api/events`                             | yes      | `201 CalendarEvent`; `502` if Google says no       |
 
 POST body: `{"text": "1..200 chars after trim", "color": "#rrggbb" | null, "duration_s": 1..60 | null}`.
 `duration_s` is how many seconds the board shows it for (scrolling text loops until it elapses);
@@ -115,3 +119,16 @@ stored and returned, the Clerk user id is stored but never returned.
 ```
 Sprite = {id, name, author_name, w, h, pixels, created_at}
 ```
+
+### Calendar
+
+Events live in a Google Calendar, not Neon, so people can add them from Google too. The backend
+reads and writes it as a service account (`home-dash-writer`) the calendar is shared with at
+"Make changes to events". The ledboard reads the same calendar with its own read-only account.
+
+`POST /api/events` takes `{"title", "date": "YYYY-MM-DD", "start_time": "HH:MM" | null,
+"end_time": "HH:MM" | null, "location": str | null}`, all Europe/London. No `start_time` means all
+day; no `end_time` means an hour; an end before the start runs past midnight. `CalendarEvent` is
+`{"id", "title", "start", "end", "all_day", "location", "link"}`, where `start`/`end` are ISO
+dateTimes, or dates with an exclusive end when `all_day`. Both routes answer `503` until both
+`GOOGLE_*` vars are set.

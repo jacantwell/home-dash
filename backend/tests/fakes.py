@@ -1,5 +1,8 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as clock
+from typing import Any
 
+from api.calendar import CalendarError, CalendarEvent, google_times
 from api.comments import COMMENT_TTL, Comment
 from api.db import Message, Status
 from api.sprites import Sprite, SpriteNameTaken
@@ -104,3 +107,54 @@ class InMemorySpriteRepo:
 
     def list(self, limit: int) -> list[Sprite]:
         return sorted(self.rows, key=lambda s: s.created_at, reverse=True)[:limit]
+
+
+class InMemoryCalendar:
+    """Records create() kwargs; set `error` to make every call raise CalendarError."""
+
+    def __init__(self, events: list[CalendarEvent] | None = None) -> None:
+        self.events: list[CalendarEvent] = list(events or [])
+        self.created: list[dict[str, Any]] = []
+        self.limits: list[int] = []
+        self.error: str | None = None
+
+    def upcoming(self, limit: int) -> list[CalendarEvent]:
+        self.limits.append(limit)
+        if self.error:
+            raise CalendarError(self.error)
+        return self.events[:limit]
+
+    def create(
+        self,
+        *,
+        title: str,
+        day: date,
+        start: clock | None,
+        end: clock | None,
+        location: str | None,
+        added_by: str,
+    ) -> CalendarEvent:
+        kwargs = {
+            "title": title,
+            "day": day,
+            "start": start,
+            "end": end,
+            "location": location,
+            "added_by": added_by,
+        }
+        self.created.append(kwargs)
+        if self.error:
+            raise CalendarError(self.error)
+        begins, ends = google_times(day, start, end)
+        key = "date" if start is None else "dateTime"
+        event = CalendarEvent(
+            id=f"evt{len(self.created)}",
+            title=title,
+            start=begins[key],
+            end=ends[key],
+            all_day=start is None,
+            location=location,
+            link=None,
+        )
+        self.events.append(event)
+        return event
