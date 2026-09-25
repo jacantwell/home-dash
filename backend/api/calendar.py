@@ -1,6 +1,7 @@
 import json
 import threading
 import time
+import uuid
 from datetime import date, datetime, timedelta
 from datetime import time as clock
 from typing import Any, Protocol
@@ -32,6 +33,10 @@ class CalendarEvent(BaseModel):
 
 class CalendarError(Exception):
     pass
+
+
+class CalendarTimeout(CalendarError):
+    """Google may still have done it; only the reply was lost."""
 
 
 def event_from_google(item: dict[str, Any]) -> CalendarEvent:
@@ -134,6 +139,8 @@ class GoogleCalendar:
     def _send(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
         try:
             response = httpx.request(method, url, timeout=TIMEOUT_SECONDS, **kwargs)
+        except httpx.TimeoutException as exc:
+            raise CalendarTimeout(f"{type(exc).__name__}: {exc}"[:500]) from exc
         except httpx.HTTPError as exc:
             raise CalendarError(f"{type(exc).__name__}: {exc}"[:500]) from exc
         if not response.is_success:
@@ -146,8 +153,10 @@ class GoogleCalendar:
             raise CalendarError("google returned a non-object body")
         return body
 
-    def _api(self, method: str, **kwargs: Any) -> dict[str, Any]:
+    def _api(self, method: str, event_id: str = "", **kwargs: Any) -> dict[str, Any]:
         url = f"{self.api_url}/calendars/{quote(self.calendar_id, safe='')}/events"
+        if event_id:
+            url += f"/{quote(event_id, safe='')}"
         headers = {"Authorization": f"Bearer {self._access_token()}"}
         return self._send(method, url, headers=headers, **kwargs)
 
@@ -182,7 +191,10 @@ class GoogleCalendar:
         added_by: str,
     ) -> CalendarEvent:
         begins, ends = google_times(day, start, end)
+        # our own id (hex is valid base32hex) so a timed-out insert can be looked up, not redone
+        event_id = uuid.uuid4().hex
         payload: dict[str, Any] = {
+            "id": event_id,
             "summary": title,
             "start": begins,
             "end": ends,
@@ -191,7 +203,11 @@ class GoogleCalendar:
         if location:
             payload["location"] = location
         try:
-            return event_from_google(self._api("POST", json=payload))
+            body = self._api("POST", json=payload)
+        except CalendarTimeout:
+            body = self._api("GET", event_id=event_id)
+        try:
+            return event_from_google(body)
         except (KeyError, TypeError, AttributeError) as exc:
             raise CalendarError("google's created event is missing fields") from exc
 

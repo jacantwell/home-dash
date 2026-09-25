@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from collections.abc import Iterator
 from datetime import date, datetime, timedelta
@@ -19,6 +20,7 @@ from api.calendar import (
     TOKEN_URL,
     CalendarError,
     CalendarEvent,
+    CalendarTimeout,
     GoogleCalendar,
     event_from_google,
     get_calendar,
@@ -318,6 +320,30 @@ def test_send_failures_are_calendar_errors(
         cal._send("GET", EVENTS_URL)
 
 
+TIMEOUTS = [
+    pytest.param(httpx.ReadTimeout("slow"), id="read"),
+    pytest.param(httpx.ConnectTimeout("slow"), id="connect"),
+    pytest.param(httpx.WriteTimeout("slow"), id="write"),
+    pytest.param(httpx.PoolTimeout("slow"), id="pool"),
+]
+
+
+@pytest.mark.parametrize("exc", TIMEOUTS)
+def test_send_timeouts_are_calendar_timeouts(cal: GoogleCalendar, exc: Exception) -> None:
+    with respx.mock() as router, pytest.raises(CalendarTimeout) as info:
+        router.get(EVENTS_URL).side_effect = exc
+        cal._send("GET", EVENTS_URL)
+    assert isinstance(info.value, CalendarError), "routes 502 on any CalendarError"
+    assert type(exc).__name__ in str(info.value)
+
+
+def test_send_non_timeout_error_is_not_calendar_timeout(cal: GoogleCalendar) -> None:
+    with respx.mock() as router, pytest.raises(CalendarError) as info:
+        router.get(EVENTS_URL).side_effect = httpx.ConnectError("refused")
+        cal._send("GET", EVENTS_URL)
+    assert not isinstance(info.value, CalendarTimeout)
+
+
 def test_send_truncates_error_text(cal: GoogleCalendar) -> None:
     with respx.mock() as router, pytest.raises(CalendarError) as info:
         router.get(EVENTS_URL).respond(500, text="x" * 1000)
@@ -478,7 +504,9 @@ def test_create_payload(
     _create(cal, **overrides)
     request = route.calls.last.request
     assert request.headers["Authorization"] == "Bearer tok"
-    assert json.loads(request.content) == expected
+    sent = json.loads(request.content)
+    assert re.fullmatch(r"[0-9a-f]{32}", sent.pop("id")), "client-chosen id is a uuid4 hex"
+    assert sent == expected
 
 
 def test_create_returns_parsed_event(cal: GoogleCalendar, google: respx.MockRouter) -> None:
@@ -500,6 +528,85 @@ def test_create_unparseable_response_is_calendar_error(
     google.post(EVENTS_URL).respond(200, json=bad)
     with pytest.raises(CalendarError, match="missing fields"):
         _create(cal)
+
+
+def test_create_ids_are_unique(cal: GoogleCalendar, google: respx.MockRouter) -> None:
+    route = google.post(EVENTS_URL).respond(200, json=GOOGLE_ITEM)
+    _create(cal)
+    _create(cal)
+    ids = {json.loads(c.request.content)["id"] for c in route.calls}
+    assert len(ids) == 2, "each create must pick a fresh id"
+
+
+def _posted_id(route: respx.Route) -> str:
+    return json.loads(route.calls.last.request.content)["id"]
+
+
+@pytest.mark.parametrize("exc", TIMEOUTS)
+def test_create_confirms_by_id_after_post_timeout(
+    cal: GoogleCalendar, google: respx.MockRouter, exc: Exception
+) -> None:
+    post = google.post(EVENTS_URL)
+    post.side_effect = exc
+    confirmed = {**GOOGLE_ITEM, "id": "confirmed"}
+    get = google.get(url__regex=re.escape(EVENTS_URL) + r"/[0-9a-f]{32}$")
+    get.respond(200, json=confirmed)
+    assert _create(cal) == event_from_google(confirmed)
+    assert post.call_count == 1, "the POST must never be retried"
+    assert get.call_count == 1
+    assert get.calls.last.request.url.path.endswith(f"/events/{_posted_id(post)}"), (
+        "confirm GET must look up the id we POSTed"
+    )
+
+
+@pytest.mark.parametrize(
+    ("confirm", "error"),
+    [
+        pytest.param(httpx.Response(404, text="not found"), CalendarError, id="404"),
+        pytest.param(httpx.Response(500, text="boom"), CalendarError, id="500"),
+        pytest.param(httpx.ReadTimeout("slow"), CalendarTimeout, id="timeout-again"),
+        pytest.param(httpx.ConnectError("refused"), CalendarError, id="connect-error"),
+    ],
+)
+def test_create_raises_when_confirm_fails(
+    cal: GoogleCalendar,
+    google: respx.MockRouter,
+    confirm: httpx.Response | Exception,
+    error: type[CalendarError],
+) -> None:
+    post = google.post(EVENTS_URL)
+    post.side_effect = httpx.ReadTimeout("slow")
+    get = google.get(url__startswith=EVENTS_URL + "/")
+    if isinstance(confirm, Exception):
+        get.side_effect = confirm
+    else:
+        get.return_value = confirm
+    with pytest.raises(error):
+        _create(cal)
+    assert post.call_count == 1, "the POST must never be retried"
+    assert get.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        pytest.param(httpx.Response(500, text="boom"), id="server-error"),
+        pytest.param(httpx.ConnectError("refused"), id="connect-error"),
+    ],
+)
+def test_create_only_confirms_after_timeouts(
+    cal: GoogleCalendar, google: respx.MockRouter, response: httpx.Response | Exception
+) -> None:
+    post = google.post(EVENTS_URL)
+    if isinstance(response, Exception):
+        post.side_effect = response
+    else:
+        post.return_value = response
+    get = google.get(url__startswith=EVENTS_URL + "/")
+    with pytest.raises(CalendarError):
+        _create(cal)
+    assert post.call_count == 1
+    assert not get.called, "a definite failure must not trigger the confirm GET"
 
 
 def test_create_api_error(cal: GoogleCalendar, google: respx.MockRouter) -> None:
