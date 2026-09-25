@@ -16,6 +16,7 @@ describe("Home page", () => {
     ["board/", "/board"],
     ["chatroom/", "/chatroom"],
     ["etch/", "/etch"],
+    ["calendar/", "/calendar"],
     ["sprites/", "/sprites"],
     ["terms.html", "/terms"],
   ])("lists %s pointing at %s", (name, href) => {

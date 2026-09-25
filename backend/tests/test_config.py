@@ -59,3 +59,20 @@ def test_settings_explicit_issuer_wins() -> None:
 )
 def test_settings_authorized_parties(raw: str, expected: frozenset[str]) -> None:
     assert Settings(_env_file=None, clerk_authorized_parties=raw).authorized_parties == expected
+
+
+@pytest.mark.parametrize(
+    ("field", "env"),
+    [
+        pytest.param("google_calendar_id", "GOOGLE_CALENDAR_ID", id="calendar-id"),
+        pytest.param(
+            "google_service_account_json", "GOOGLE_SERVICE_ACCOUNT_JSON", id="service-account"
+        ),
+    ],
+)
+def test_settings_google_calendar_from_env(
+    monkeypatch: pytest.MonkeyPatch, field: str, env: str
+) -> None:
+    assert getattr(Settings(_env_file=None), field) == "", "should default to unconfigured"
+    monkeypatch.setenv(env, '{"type": "service_account"}')
+    assert getattr(Settings(_env_file=None), field) == '{"type": "service_account"}'

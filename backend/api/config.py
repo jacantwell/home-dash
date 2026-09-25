@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     next_public_clerk_publishable_key: str = ""
     clerk_issuer: str = ""
     clerk_authorized_parties: str = ""
+    google_calendar_id: str = ""
+    # the service account's whole json key, one line; Vercel has no file to point at
+    google_service_account_json: str = ""
 
     @property
     def issuer(self) -> str:

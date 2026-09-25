@@ -1,4 +1,6 @@
 import re
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as clock
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -7,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from api.auth import Claims, ClerkVerifier, bearer_token, current_user
 from api.board import EtchResult, etch_clear, etch_move, etch_state, send_to_board
+from api.calendar import Calendar, CalendarError, CalendarEvent, GoogleCalendar, get_calendar
 from api.comments import Comment, CommentRepo, get_comment_repo
 from api.config import Settings
 from api.db import Message, MessageRepo, get_repo
@@ -23,6 +26,8 @@ from api.sprites import (
 )
 
 TEXT_MAX = 200
+EVENT_TITLE_MAX = 100
+EVENT_LOCATION_MAX = 200
 DURATION_MAX_S = 60
 COMMENT_MAX = 200
 COMMENT_MAX_LINES = 5
@@ -159,18 +164,70 @@ class SpriteList(BaseModel):
     sprites: list[Sprite] = Field(default_factory=list)
 
 
+class EventIn(BaseModel):
+    title: str
+    date: date
+    # no start_time = all day
+    start_time: clock | None = None
+    end_time: clock | None = None
+    location: str | None = None
+
+    @field_validator("title")
+    @classmethod
+    def _normalise_title(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not value:
+            raise ValueError("title must not be empty")
+        if len(value) > EVENT_TITLE_MAX:
+            raise ValueError(f"title must be at most {EVENT_TITLE_MAX} characters")
+        return value
+
+    @field_validator("location")
+    @classmethod
+    def _normalise_location(cls, value: str | None) -> str | None:
+        value = " ".join((value or "").split())
+        if len(value) > EVENT_LOCATION_MAX:
+            raise ValueError(f"location must be at most {EVENT_LOCATION_MAX} characters")
+        return value or None
+
+    @field_validator("date")
+    @classmethod
+    def _not_in_the_past(cls, value: date) -> date:
+        # a day of slack so nobody's "today" is rejected by a UTC server
+        if value < (datetime.now(UTC) - timedelta(days=1)).date():
+            raise ValueError("date must not be in the past")
+        return value
+
+    @model_validator(mode="after")
+    def _end_needs_start(self) -> "EventIn":
+        if self.end_time is not None and self.start_time is None:
+            raise ValueError("end_time needs a start_time")
+        return self
+
+
+class EventList(BaseModel):
+    events: list[CalendarEvent] = Field(default_factory=list)
+
+
 def sender_name_from(claims: Claims) -> str:
     # never fall back to `sub`: the Clerk user id is not a display name
     return str(claims.get("name") or "")
 
 
-def create_app(settings: Settings, verifier: ClerkVerifier | None = None) -> FastAPI:
+def create_app(
+    settings: Settings,
+    verifier: ClerkVerifier | None = None,
+    calendar: Calendar | None = None,
+) -> FastAPI:
     app = FastAPI(title="home-dash-api", version="0.1.0")
     app.state.settings = settings
     if verifier is None and settings.issuer:
         verifier = ClerkVerifier(settings.issuer, settings.authorized_parties)
     # None -> auth routes answer 503 instead of the whole service failing to import
     app.state.verifier = verifier
+    if calendar is None and settings.google_calendar_id and settings.google_service_account_json:
+        calendar = GoogleCalendar(settings.google_calendar_id, settings.google_service_account_json)
+    app.state.calendar = calendar
 
     @app.get("/api/healthz")
     def healthz() -> dict[str, bool]:
@@ -283,5 +340,35 @@ def create_app(settings: Settings, verifier: ClerkVerifier | None = None) -> Fas
             raise HTTPException(
                 status.HTTP_409_CONFLICT, f"a sprite called '{body.name}' already exists"
             ) from None
+
+    # house calendar: signed-in only, Google holds the events
+    @app.get("/api/events", response_model=EventList)
+    def list_events(
+        claims: Annotated[Claims, Depends(current_user)],
+        calendar: Annotated[Calendar, Depends(get_calendar)],
+        limit: int = Query(20, ge=1, le=100),
+    ) -> EventList:
+        try:
+            return EventList(events=calendar.upcoming(limit))
+        except CalendarError as exc:
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+
+    @app.post("/api/events", response_model=CalendarEvent, status_code=status.HTTP_201_CREATED)
+    def create_event(
+        body: EventIn,
+        claims: Annotated[Claims, Depends(current_user)],
+        calendar: Annotated[Calendar, Depends(get_calendar)],
+    ) -> CalendarEvent:
+        try:
+            return calendar.create(
+                title=body.title,
+                day=body.date,
+                start=body.start_time,
+                end=body.end_time,
+                location=body.location,
+                added_by=sender_name_from(claims),
+            )
+        except CalendarError as exc:
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
 
     return app

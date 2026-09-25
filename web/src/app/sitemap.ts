@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { POSTS } from "./chatroom/posts";
 
-const STATIC = ["", "/board", "/etch", "/chatroom", "/terms"] as const;
+const STATIC = ["", "/board", "/etch", "/chatroom", "/calendar", "/terms"] as const;
 
 export function siteUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL;
