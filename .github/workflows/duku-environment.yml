@@ -101,11 +101,18 @@ jobs:
           sha: ${{ inputs.sha || github.sha }}
           environment: ${{ steps.env.outputs.vercel }}
 
+      # Test only: the checkout above is at inputs.sha, so fetch this branch's vendored action separately.
+      - name: Check out the action under test
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .duku-under-test
+          sparse-checkout: .github/actions/duku-environment-under-test
+
       - name: Publish ${{ steps.release.outputs.label }} to Duku ${{ steps.env.outputs.duku }}
         id: duku
-        # Unreleased (0.4-to-be) code, pinned to duku-ai/actions main @ chrome-worker@7403cf1.
-        # Move to a release tag (environment/vX.Y.Z) once one is cut. Dependabot is told to leave this alone.
-        uses: duku-ai/actions/environment@c3fecd5985c82f36a56ecf8f6ceabfcd54fe3da2
+        # Unreleased environment 0.4.2 (Node 24), built from chrome-worker PRs #4247–#4250.
+        uses: ./.duku-under-test/.github/actions/duku-environment-under-test
         with:
           api-key: ${{ secrets.PLATFORM_API_KEY }}
           product-id: ${{ vars.DUKU_PRODUCT_ID }}

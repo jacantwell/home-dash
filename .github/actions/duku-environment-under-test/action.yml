@@ -1,0 +1,149 @@
+name: 'Duku Environment'
+description: 'Records the build a commit produced against one of your Duku environments, then triggers an exploration and/or test cases against it. The action kicks off the runs and exits — terminal results appear in Viewport. Intended for push / schedule / workflow_dispatch.'
+author: 'Duku AI'
+
+inputs:
+  api-key:
+    description: 'Platform API key (generate in Viewport Settings → API Keys)'
+    required: true
+
+  product-id:
+    description: 'Duku product ID (from Viewport → Products). Use with `environment`; mints a build per commit against that endpoint.'
+    required: false
+    default: ''
+
+  environment:
+    description: 'Name of an environment declared on the product (Viewport → Product settings → Environments), e.g. staging. Optional with `product-id`: when empty the run lands on the product''s default environment.'
+    required: false
+    default: ''
+
+  release-label:
+    description: 'Explicit release name for this build, e.g. 1.4.2. Recorded alongside the commit SHA. When set it wins over `release-label-from`.'
+    required: false
+    default: ''
+
+  release-label-from:
+    description: 'Where the release name comes from when `release-label` is unset: `git-describe` (default, `git describe --tags --always --dirty`), `git-tag` (exact tag on HEAD), `package-json` (version field), or `input` (only `release-label`, may be empty). A source that yields nothing falls back to the short SHA with a warning, never a failure.'
+    required: false
+    default: 'git-describe'
+
+  package-json-path:
+    description: 'Path to package.json, relative to the checkout root. Only read when `release-label-from` is `package-json`.'
+    required: false
+    default: 'package.json'
+
+  target-id:
+    description: 'DEPRECATED: pre-created environment target ID from Viewport. Runs are not attributed to a release — use product-id + environment instead. Mutually exclusive with them.'
+    required: false
+    default: ''
+
+  url:
+    description: 'DEPRECATED: use `exploration-url` instead. Override the URL to explore. Only valid with `target-id` (defaults to the target buildUrl); with `environment` the endpoint owns its URL.'
+    required: false
+    default: ''
+
+  exploration-url:
+    description: 'Override the URL to explore. Only valid with `target-id` (defaults to the target buildUrl); with `product-id` (+ optional `environment`) the endpoint owns its URL.'
+    required: false
+    default: ''
+
+  api-url:
+    description: 'Platform API GraphQL endpoint URL'
+    required: false
+    default: 'https://platform.duku.ai/graphql'
+
+  auth-url:
+    description: 'Authentication server URL (defaults to deriving from api-url by replacing the platform. host prefix with auth. and dropping the path)'
+    required: false
+    default: ''
+
+  repository:
+    description: 'Explicit "owner/repo" to attach PR metadata to when not running on a pull_request event (must be set together with pr-number). Lets non-pull_request triggers post the PR comment.'
+    required: false
+    default: ''
+
+  pr-number:
+    description: 'Explicit PR number to attach to when not running on a pull_request event (must be set together with repository).'
+    required: false
+    default: ''
+
+  github-installation-id:
+    description: 'GitHub App installation ID for PR error reporting (optional; the server can auto-discover the installation when the Duku GitHub App is installed on the repo)'
+    required: false
+    default: ''
+
+  github-token:
+    description: 'GitHub token. On a pull_request event it posts the sticky "running" PR comment (needs pull-requests: write). On a push it resolves which PRs the pushed commits came from, so a PR''s preview builds can be linked to the build that shipped (needs pull-requests: read). Falls back to GITHUB_TOKEN from env if unset. Optional on both paths — without it the comment and the link are skipped, never failed. Unused on schedule / workflow_dispatch.'
+    required: false
+    default: ''
+
+  run-exploration:
+    description: 'Start an exploration run. Set false to trigger only the test batch.'
+    required: false
+    default: 'true'
+
+  run-tests:
+    description: "Trigger the target's test cases. Set false to explore only."
+    required: false
+    default: 'true'
+
+  wait-for-deployment:
+    description: 'Poll the environment URL until it serves the expected commit before exploring. The app must expose its deployed commit as a response header (see wait-commit-header). Off by default.'
+    required: false
+    default: 'false'
+
+  wait-for-deployment-timeout-seconds:
+    description: 'How long to wait for the expected commit before failing the step.'
+    required: false
+    default: '300'
+
+  wait-for-deployment-interval-seconds:
+    description: 'Delay between deployment polls.'
+    required: false
+    default: '10'
+
+  wait-commit-header:
+    description: 'Response header the app exposes its deployed commit hash on (case-insensitive).'
+    required: false
+    default: 'x-commit-sha'
+
+  wait-commit-path:
+    description: 'Path appended to the environment URL on each poll (e.g. /api/health).'
+    required: false
+    default: '/'
+
+  test-runs-per-path:
+    description: 'Optional override for runs per path on runAllTestCases'
+    required: false
+    default: ''
+
+  test-paths-per-goal:
+    description: 'Optional override for paths per goal on runAllTestCases'
+    required: false
+    default: ''
+
+outputs:
+  target-id:
+    description: 'ID of the build the run was attributed to (the minted target in environment mode, the given target in target mode).'
+
+  release-id:
+    description: 'ID of the release (app version) the build landed as. Empty in target mode, which mints no release.'
+
+  run-id:
+    description: 'ID of the exploration batch. Empty when run-exploration is false.'
+
+  run-status:
+    description: 'Kickoff status of the exploration: triggered (running asynchronously — see Viewport for terminal status), or skipped (run-exploration is false)'
+
+  test-run-id:
+    description: 'ID of the test-run batch (intent batch). Empty if the target has no test cases configured, or run-tests is false.'
+
+  test-run-status:
+    description: 'Kickoff status of the test-run batch: triggered (running asynchronously in Viewport), or skipped (no test cases configured, or run-tests is false)'
+
+  comment-id:
+    description: 'ID of the sticky PR comment posted by the action (only set when invoked on a pull_request event with a github-token)'
+
+runs:
+  using: 'node24'
+  main: 'dist/index.js'
