@@ -117,7 +117,8 @@ jobs:
           api-key: ${{ secrets.SANDBOX_PLATFORM_API_KEY }}
           product-id: ${{ vars.SANDBOX_DUKU_PRODUCT_ID }}
           api-url: ${{ vars.DUKU_API_URL || 'https://platform.duku.ai/graphql' }}
-          environment: ${{ steps.env.outputs.duku }}
+          # Test only: the sandbox product declares just `default`.
+          environment: default
           # Same value the app reports as NEXT_PUBLIC_APP_VERSION.
           release-label: ${{ steps.release.outputs.label }}
           github-token: ${{ github.token }}
