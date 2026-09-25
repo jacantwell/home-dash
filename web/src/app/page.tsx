@@ -27,6 +27,13 @@ const ENTRIES = [
     description: "Notes from the house; reply anonymously, PictoChat style",
   },
   {
+    href: "/calendar",
+    name: "calendar/",
+    icon: "folder",
+    size: "-",
+    description: "Upcoming house events; add one and it shows on the board",
+  },
+  {
     href: "/sprites",
     name: "sprites/",
     icon: "folder",
