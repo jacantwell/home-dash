@@ -1,10 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["lhr1"],
-  "ignoreCommand": "sh scripts/vercel-ignore-build.sh",
   "services": {
-    "web": { "root": "web/", "framework": "nextjs" },
-    "api": { "root": "backend/", "framework": "fastapi", "entrypoint": "main:app" }
+    "web": {
+      "root": "web/",
+      "framework": "nextjs",
+      "ignoreCommand": "sh \"$(git rev-parse --show-toplevel)/scripts/vercel-ignore-build.sh\""
+    },
+    "api": {
+      "root": "backend/",
+      "framework": "fastapi",
+      "entrypoint": "main:app",
+      "ignoreCommand": "sh \"$(git rev-parse --show-toplevel)/scripts/vercel-ignore-build.sh\""
+    }
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": { "service": "api" } },
