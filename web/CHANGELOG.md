@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.14](https://github.com/jacantwell/home-dash/compare/v0.2.13...v0.2.14) (2026-09-26)
+
+
+### Features
+
+* house calendar page ([#66](https://github.com/jacantwell/home-dash/issues/66)) ([345eea8](https://github.com/jacantwell/home-dash/commit/345eea880e6763393bab9f3ff966e8ee96fa00a5))
+
 ## [0.2.13](https://github.com/jacantwell/home-dash/compare/v0.2.12...v0.2.13) (2026-09-15)
 
 
