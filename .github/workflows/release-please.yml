@@ -1,7 +1,11 @@
-# Opens/updates a release PR on every push to main. Merging it tags vX.Y.Z,
-# publishes a GitHub Release and updates CHANGELOG.md + package.json — and,
-# because Vercel deploys every `main` commit to staging, that release is the
-# one that gets published to Duku's staging environment and explored.
+# Every merge to main cuts a version. release-please opens/updates the release
+# PR and it merges itself once CI passes; that merge tags vX.Y.Z, publishes a
+# GitHub Release, updates CHANGELOG.md + package.json, and is the only kind of
+# `main` commit Vercel deploys to staging (scripts/vercel-ignore-build.sh). So
+# staging always runs a tagged version, and it's the one Duku staging explores.
+#
+# Merges with only hidden commit types (chore, refactor, docs, ci...) get no
+# version and ship with the next feat/fix.
 #
 # Production is a separate button: promote-to-production.yml ships the same
 # tagged version and publishes it to Duku's production environment.
@@ -22,6 +26,7 @@ jobs:
     outputs:
       release-created: ${{ steps.release.outputs.web--release_created }}
       tag: ${{ steps.release.outputs.web--tag_name }}
+      pr: ${{ steps.release.outputs.pr }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: release
@@ -31,8 +36,29 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # Only fires on the push that merged a release PR: ordinary merges still hit
-  # staging via Vercel, but Duku only ever sees tagged versions.
+  # Queued with the PAT, not GITHUB_TOKEN: the merge's push has to start this
+  # workflow again so release-please can tag it.
+  auto-merge:
+    name: Auto-merge release PR
+    needs: release-please
+    if: needs.release-please.outputs.pr != '' && needs.release-please.outputs.release-created != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge once CI passes
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          NUMBER: ${{ fromJSON(needs.release-please.outputs.pr).number }}
+          TITLE: ${{ fromJSON(needs.release-please.outputs.pr).title }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::RELEASE_PLEASE_TOKEN is not set; a GITHUB_TOKEN merge would never get tagged"
+            exit 1
+          fi
+          gh pr merge "$NUMBER" --repo "$GITHUB_REPOSITORY" --auto --squash --subject "$TITLE (#$NUMBER)"
+
+  # Only fires on the push that merged a release PR, which is also the only
+  # `main` commit staging deploys, so Duku only ever sees tagged versions.
   duku-staging:
     name: Duku staging
     needs: release-please
