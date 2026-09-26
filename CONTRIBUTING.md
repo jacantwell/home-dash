@@ -70,11 +70,15 @@ decision: land a PR titled `feat!: release 1.0.0` (or set `"release-as": "1.0.0"
 2. It opens (or updates) a single PR titled `chore(release): vX.Y.Z` containing the
    `package.json` bump and the generated `CHANGELOG.md` entry, computed from the commits since
    the last tag.
-3. Merging that PR creates the `vX.Y.Z` tag and a GitHub Release with the changelog.
-4. Vercel deploys `main` to staging on every merge, so merging the release PR puts that version
-   on staging. The same run then publishes the release to Duku's `staging` environment and kicks
-   off its exploration and tests. The version is exposed to the app as `NEXT_PUBLIC_APP_VERSION`.
+3. That PR merges itself once its CI passes, which creates the `vX.Y.Z` tag and a GitHub Release
+   with the changelog. You don't touch it.
+4. Staging only deploys release commits (`vercel.json`'s `ignoreCommand`), so it always runs a
+   tagged version and its `NEXT_PUBLIC_APP_VERSION` label is always true. The same run publishes
+   the release to Duku's `staging` environment and kicks off its exploration and tests.
 5. Production is a separate, manual promote of that release (see Deployments below).
+
+A merge with only hidden types (`chore`, `refactor`, `docs`, `ci`, ...) cuts no version, so it
+doesn't reach staging on its own; it ships with the next `feat`/`fix`.
 
 Tags matching `v*` are protected: they can't be deleted or moved.
 
@@ -84,8 +88,8 @@ Enforced by repository rulesets (Settings → Rules), not by convention:
 
 - `main`: PRs only, squash-merged, linear history, no force-push or deletion. **No review is
   required** — merging is gated on CI alone: `Lint`, `Typecheck`, `Test`, `Build`, `Backend`,
-  `PR title` and `Vercel` must pass on the PR head. Anyone with write access can merge, which
-  includes the release PR, so anyone can cut a staging release.
+  `PR title` and `Vercel` must pass on the PR head. Anyone with write access can merge, and
+  every releasable merge cuts a staging release on its own.
 - `production`: can't be deleted. It only moves via the promote workflow (below), which is the
   real gate — the branch itself has no push restriction, because GitHub won't let the Actions
   token bypass one on a personal repo.
@@ -100,9 +104,9 @@ Enforced by repository rulesets (Settings → Rules), not by convention:
 ## Deployments
 
 - Every PR gets a **Vercel preview deployment**; the URL is posted on the PR.
-- `main` deploys to **staging** ([staging.worm.beer](https://staging.worm.beer)) automatically.
-- Merging the release PR publishes the new `vX.Y.Z` to Duku's `staging` environment and runs
-  its exploration + tests there. Other merges hit staging but are not published to Duku.
+- Each release on `main` deploys to **staging** ([staging.worm.beer](https://staging.worm.beer))
+  automatically, and publishes the new `vX.Y.Z` to Duku's `staging` environment to run its
+  exploration + tests there. Non-release `main` commits are skipped by Vercel.
 - **Production ([worm.beer](https://worm.beer)) is manual.** Merging does not ship it. Run the
   **Promote to production** workflow from the Actions tab; with `ref` empty it fast-forwards the
   `production` branch onto the latest release tag, then publishes that same version to Duku's

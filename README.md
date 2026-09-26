@@ -80,7 +80,7 @@ without someone pressing a button:
 | Environment | URL                                            | Deployed from       |
 | ----------- | ---------------------------------------------- | ------------------- |
 | Preview     | `home-dash-git-<branch>-…vercel.app`           | every PR branch     |
-| Staging     | [staging.worm.beer](https://staging.worm.beer) | every `main` commit |
+| Staging     | [staging.worm.beer](https://staging.worm.beer) | every release       |
 | Production  | [worm.beer](https://worm.beer)                 | `production` branch |
 
 Staging is a Vercel _preview_ deployment with `staging.worm.beer` pinned to the `main` branch,
@@ -94,6 +94,7 @@ except the Pi is split along that line:
 | Neon                       | `home-dash` project, `staging` branch | `home-dash` project, `main` branch  |
 | Pi                         | same `LEDBOARD_URL`                   | same `LEDBOARD_URL`                 |
 | `CLERK_AUTHORIZED_PARTIES` | `https://staging.worm.beer`           | `https://worm.beer`                 |
+| Google Calendar            | `House-Staging` calendar              | `House` calendar (on the board)     |
 
 The Neon `staging` branch is a copy-on-write fork of `main`; reset it from the parent in the Neon
 console whenever staging needs prod-shaped data again. Because the Pi is shared and verifies the
@@ -105,18 +106,20 @@ domain, and with it on `staging.worm.beer` redirects everyone to Vercel SSO. Cle
 
 ### Promoting staging to production
 
-Production tracks the `production` branch, which never moves on its own. Run the
-**Promote to production** workflow from the Actions tab (`workflow_dispatch`) to fast-forward it.
-Leave `ref` empty and it promotes the **latest release tag** — the version that release-please
-just cut and that is already sitting on staging:
+Every merge to `main` that has a `feat`/`fix`/`perf`/`revert` cuts a version: release-please
+opens the release PR, it merges itself once CI passes, and that release commit is the only kind
+of `main` commit Vercel builds for staging (`scripts/vercel-ignore-build.sh`). Production tracks
+the `production` branch, which never moves on its own. Run the **Promote to production** workflow
+from the Actions tab (`workflow_dispatch`) to fast-forward it. Leave `ref` empty and it promotes
+the **latest release tag**, the version already sitting on staging:
 
 ```
-PR ──merge──► main ──auto──► staging.worm.beer ──► release PR opens itself
-                                                        │
-                        merge release PR ──► vX.Y.Z tag ─┴─► Duku `staging` publish + runs
-                                                        │
+PR ──merge──► main ──► release PR opens ──auto-merge on green CI──► vX.Y.Z tag
+                                                                       │
+                                     staging.worm.beer builds it ◄─────┼─► Duku `staging` publish + runs
+                                                                       │
  Actions ▸ Promote to production ─(approval)─► git push --ff production ──► worm.beer
-                                                        └─► Duku `production` publish + runs
+                                                                       └─► Duku `production` publish + runs
 ```
 
 It refuses to promote a commit that has not landed on `main`, one that is not a tagged release
@@ -138,18 +141,17 @@ explored and tested there. `duku-environment.yml` is a reusable workflow that wa
 Vercel deployment of a commit, records it as a Duku build labelled with the release (`vX.Y.Z`,
 same as `NEXT_PUBLIC_APP_VERSION`) and kicks off the environment's exploration + test cases:
 
-| Trigger                                       | Vercel deployment           | Duku environment |
-| --------------------------------------------- | --------------------------- | ---------------- |
-| Merging the release PR (`release-please.yml`) | Preview of `main` (staging) | `staging`        |
-| **Promote to production**                     | Production                  | `production`     |
+| Trigger                                     | Vercel deployment           | Duku environment |
+| ------------------------------------------- | --------------------------- | ---------------- |
+| A release PR merging (`release-please.yml`) | Preview of `main` (staging) | `staging`        |
+| **Promote to production**                   | Production                  | `production`     |
 
 Both names must match the environments declared on the product in Viewport (Product settings →
 Environments); the action does not create them.
 
-Ordinary merges to `main` reach staging via Vercel but are **not** published to Duku — only tagged
-versions are, so every Duku build maps to a GitHub Release. PR previews are deliberately not
-explored either: exploration runs at the environment level only, so a PR's signal comes from CI
-and the release it lands in.
+Only tagged versions reach staging or Duku, so every Duku build maps to a GitHub Release. PR
+previews are deliberately not explored either: exploration runs at the environment level only, so
+a PR's signal comes from CI and the release it lands in.
 
 Neither publish fires off a `push:` event. The staging one chains onto the release-please job
 that created the tag, and the production one is the second job of the promote run, because
