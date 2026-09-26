@@ -72,9 +72,10 @@ decision: land a PR titled `feat!: release 1.0.0` (or set `"release-as": "1.0.0"
    the last tag.
 3. That PR merges itself once its CI passes, which creates the `vX.Y.Z` tag and a GitHub Release
    with the changelog. You don't touch it.
-4. Staging only deploys release commits (`vercel.json`'s `ignoreCommand`), so it always runs a
-   tagged version and its `NEXT_PUBLIC_APP_VERSION` label is always true. The same run publishes
-   the release to Duku's `staging` environment and kicks off its exploration and tests.
+4. Staging only deploys release commits (`scripts/vercel-ignore-build.sh`, the project's Ignored
+   Build Step), so it always runs a tagged version and its `NEXT_PUBLIC_APP_VERSION` label is
+   always true. The same run publishes the release to Duku's `staging` environment and kicks off
+   its exploration and tests.
 5. Production is a separate, manual promote of that release (see Deployments below).
 
 A merge with only hidden types (`chore`, `refactor`, `docs`, `ci`, ...) cuts no version, so it

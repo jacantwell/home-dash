@@ -108,10 +108,11 @@ domain, and with it on `staging.worm.beer` redirects everyone to Vercel SSO. Cle
 
 Every merge to `main` that has a `feat`/`fix`/`perf`/`revert` cuts a version: release-please
 opens the release PR, it merges itself once CI passes, and that release commit is the only kind
-of `main` commit Vercel builds for staging (`scripts/vercel-ignore-build.sh`). Production tracks
-the `production` branch, which never moves on its own. Run the **Promote to production** workflow
-from the Actions tab (`workflow_dispatch`) to fast-forward it. Leave `ref` empty and it promotes
-the **latest release tag**, the version already sitting on staging:
+of `main` commit Vercel builds for staging (`scripts/vercel-ignore-build.sh`, set as the
+project's **Ignored Build Step** in Vercel's Project Settings; `vercel.json` can't carry it with
+`services`). Production tracks the `production` branch, which never moves on its own. Run the
+**Promote to production** workflow from the Actions tab (`workflow_dispatch`) to fast-forward it.
+Leave `ref` empty and it promotes the **latest release tag**, the version already on staging:
 
 ```
 PR ──merge──► main ──► release PR opens ──auto-merge on green CI──► vX.Y.Z tag
