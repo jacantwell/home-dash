@@ -66,12 +66,12 @@ body {
   font: 11px/1.4 var(--font-ui);
 }
 
-/* Ground strip along the bottom. Height scales with width so phones get a thinner strip,
-   and it tiles sideways rather than stretching on wide screens. */
+/* Ground along the bottom. Sized by height so the grass/dirt ratio holds at every width;
+   tiles sideways on wide screens instead of stretching. */
 .grass {
   flex: none;
-  height: clamp(56px, 10vw, 147px);
-  background: url("/grass.webp") center bottom / auto 100% repeat-x;
+  height: clamp(104px, 18vw, 260px);
+  background: url("/grass.webp") center top / auto 100% repeat-x;
   background-image: image-set(
     url("/grass.avif") type("image/avif"),
     url("/grass.webp") type("image/webp")
