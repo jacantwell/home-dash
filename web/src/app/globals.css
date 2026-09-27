@@ -66,17 +66,36 @@ body {
   font: 11px/1.4 var(--font-ui);
 }
 
-/* Ground along the bottom. Sized by height so the grass/dirt ratio holds at every width;
-   tiles sideways on wide screens instead of stretching. */
+/* Ground along the bottom. Grass spans the width once (never tiles, crops at the edges);
+   dirt tiles underneath. */
 .grass {
+  display: flex;
   flex: none;
-  height: clamp(104px, 18vw, 260px);
-  background: url("/grass.webp") center top / auto 100% repeat-x;
+  flex-direction: column;
+  pointer-events: none;
+}
+.grass::before {
+  content: "";
+  aspect-ratio: 2400 / 294;
+  min-height: 64px;
+  max-height: 200px;
+  margin-bottom: -2px;
+  background: url("/grass.webp") center bottom / cover no-repeat;
   background-image: image-set(
     url("/grass.avif") type("image/avif"),
     url("/grass.webp") type("image/webp")
   );
-  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+.grass::after {
+  content: "";
+  height: clamp(40px, 7vw, 110px);
+  background: url("/dirt.webp") center top / 720px auto repeat-x;
+  background-image: image-set(
+    url("/dirt.avif") type("image/avif"),
+    url("/dirt.webp") type("image/webp")
+  );
 }
 
 /* ---------- pixel icons ---------- */
