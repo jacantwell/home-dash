@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.15](https://github.com/jacantwell/home-dash/compare/v0.2.14...v0.2.15) (2026-09-27)
+
+
+### Features
+
+* **web:** add a grass strip along the bottom of every page ([#70](https://github.com/jacantwell/home-dash/issues/70)) ([c739d2e](https://github.com/jacantwell/home-dash/commit/c739d2e7fbfe4ba40ed1e77b1de206c6a0567e63))
+
 ## [0.2.14](https://github.com/jacantwell/home-dash/compare/v0.2.13...v0.2.14) (2026-09-26)
 
 
