@@ -35,6 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <hr />
           </header>
           {children}
+          <footer className="grass" aria-hidden />
         </body>
       </html>
     </ClerkProvider>
