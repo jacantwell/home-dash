@@ -107,7 +107,8 @@ jobs:
         # Move to a release tag (environment/vX.Y.Z) once one is cut. Dependabot is told to leave this alone.
         uses: duku-ai/actions/environment@c3fecd5985c82f36a56ecf8f6ceabfcd54fe3da2
         with:
-          api-key: ${{ secrets.PLATFORM_API_KEY }}
+          # Sandbox key, to match DUKU_API_URL; PLATFORM_API_KEY is the production one.
+          api-key: ${{ secrets.SANDBOX_PLATFORM_API_KEY }}
           product-id: ${{ vars.DUKU_PRODUCT_ID }}
           api-url: ${{ vars.DUKU_API_URL || 'https://platform.duku.ai/graphql' }}
           environment: ${{ steps.env.outputs.duku }}

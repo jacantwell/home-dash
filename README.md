@@ -159,6 +159,7 @@ that created the tag, and the production one is the second job of the promote ru
 pushes made with the `GITHUB_TOKEN` never start workflows. To repeat a publish by hand, dispatch
 **Duku environment** with the environment and commit.
 
-Configuration lives in repo settings: variables `DUKU_PRODUCT_ID`, `DUKU_API_URL` (production
-platform) and secret `PLATFORM_API_KEY`. The action is pinned to an unreleased commit of
+Configuration lives in repo settings: variables `DUKU_PRODUCT_ID`, `DUKU_API_URL` (currently the
+sandbox platform) and secret `SANDBOX_PLATFORM_API_KEY`, which must belong to the same platform
+as the URL. The action is pinned to an unreleased commit of
 `duku-ai/actions`; see the comment in the workflow.
