@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.16](https://github.com/jacantwell/home-dash/compare/v0.2.15...v0.2.16) (2026-09-30)
+
+
+### Features
+
+* **web:** join the pigeon webring ([#73](https://github.com/jacantwell/home-dash/issues/73)) ([c78c693](https://github.com/jacantwell/home-dash/commit/c78c693ff2073e980eb95b613d36f0ae7efa1176))
+
 ## [0.2.15](https://github.com/jacantwell/home-dash/compare/v0.2.14...v0.2.15) (2026-09-27)
 
 
