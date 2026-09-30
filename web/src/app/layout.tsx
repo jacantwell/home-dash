@@ -1,6 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import "./globals.css";
 
 import { AuthNav } from "@/components/auth-nav";
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </header>
           {children}
           <footer className="grass" aria-hidden />
+          <Script src="https://mewes-space.xyz/webring/pigeon-webring.js" strategy="lazyOnload" />
         </body>
       </html>
     </ClerkProvider>
