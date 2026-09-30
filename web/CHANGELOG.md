@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.17](https://github.com/jacantwell/home-dash/compare/v0.2.16...v0.2.17) (2026-09-30)
+
+
+### Bug Fixes
+
+* **web:** only load pigeon webring in production ([#75](https://github.com/jacantwell/home-dash/issues/75)) ([6c9d1da](https://github.com/jacantwell/home-dash/commit/6c9d1dac0f1ff0a8e872d179d1de40e6012d23b3))
+
 ## [0.2.16](https://github.com/jacantwell/home-dash/compare/v0.2.15...v0.2.16) (2026-09-30)
 
 
