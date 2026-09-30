@@ -37,7 +37,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </header>
           {children}
           <footer className="grass" aria-hidden />
-          <Script src="https://mewes-space.xyz/webring/pigeon-webring.js" strategy="lazyOnload" />
+          {process.env.VERCEL_ENV === "production" && (
+            <Script src="https://mewes-space.xyz/webring/pigeon-webring.js" strategy="lazyOnload" />
+          )}
         </body>
       </html>
     </ClerkProvider>
