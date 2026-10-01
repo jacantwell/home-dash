@@ -49,8 +49,11 @@ backend only accepts calls from the home-dash frontend (request `Origin`/`Refere
 | `pnpm dev`        | Dev server (Turbopack)                        |
 | `pnpm build`      | Production build                              |
 | `pnpm check`      | Lint + format + typecheck + test (same as CI) |
+| `pnpm test`       | Vitest, single run                            |
 | `pnpm test:watch` | Vitest in watch mode                          |
+| `pnpm typecheck`  | Next typegen + `tsc --noEmit`                 |
 | `pnpm format`     | Prettier write                                |
+| `pnpm lint:fix`   | ESLint with auto-fix                          |
 
 ## Backend
 
