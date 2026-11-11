@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.18](https://github.com/jacantwell/home-dash/compare/v0.2.17...v0.2.18) (2026-11-11)
+
+
+### Features
+
+* **web:** split a bill between housemates (WOR-14) ([#90](https://github.com/jacantwell/home-dash/issues/90)) ([f2666ec](https://github.com/jacantwell/home-dash/commit/f2666ec9f3c380ec3777bc091ea53d27dd1ea2cf))
+
 ## [0.2.17](https://github.com/jacantwell/home-dash/compare/v0.2.16...v0.2.17) (2026-09-30)
 
 
