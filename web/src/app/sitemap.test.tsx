@@ -21,9 +21,12 @@ describe("siteUrl", () => {
 describe("sitemap", () => {
   const urls = sitemap().map((e) => e.url);
 
-  it.each(["/", "/board", "/etch", "/chatroom", "/calendar", "/terms"])("lists %s", (path) => {
-    expect(urls).toContain(`${siteUrl()}${path === "/" ? "" : path}`);
-  });
+  it.each(["/", "/board", "/etch", "/chatroom", "/calendar", "/split", "/terms"])(
+    "lists %s",
+    (path) => {
+      expect(urls).toContain(`${siteUrl()}${path === "/" ? "" : path}`);
+    },
+  );
 
   it.each(POSTS.map((p) => p.slug))("lists chatroom/%s", (slug) => {
     expect(urls).toContain(`${siteUrl()}/chatroom/${slug}`);

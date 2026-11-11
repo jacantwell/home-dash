@@ -30,6 +30,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <span aria-hidden>&middot;</span>
               <Link href="/sprites">sprites</Link>
               <span aria-hidden>&middot;</span>
+              <Link href="/split">split</Link>
+              <span aria-hidden>&middot;</span>
               <Link href="/terms">terms</Link>
               <AuthNav />
             </nav>
