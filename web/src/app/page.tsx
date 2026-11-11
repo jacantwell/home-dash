@@ -41,6 +41,13 @@ const ENTRIES = [
     description: "Draw 16x16 pixel-art sprites and browse the house catalog",
   },
   {
+    href: "/split",
+    name: "split/",
+    icon: "folder",
+    size: "-",
+    description: "Split a bill between housemates, tip included",
+  },
+  {
     href: "/terms",
     name: "terms.html",
     icon: "document",
