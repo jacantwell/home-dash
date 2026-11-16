@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.19](https://github.com/jacantwell/home-dash/compare/v0.2.18...v0.2.19) (2026-11-16)
+
+
+### Features
+
+* house photo gallery on s3 + cloudfront ([#94](https://github.com/jacantwell/home-dash/issues/94)) ([f19eed7](https://github.com/jacantwell/home-dash/commit/f19eed7f1c3efaf8d3bfdb6732ccda5e199afb99))
+
 ## [0.2.18](https://github.com/jacantwell/home-dash/compare/v0.2.17...v0.2.18) (2026-11-11)
 
 
