@@ -1,0 +1,143 @@
+# Terraform for infra/envs/*. PRs that touch infra get fmt + validate + a plan per
+# environment; main applies staging; production is applied by promote-to-production.yml
+# (its push uses the GITHUB_TOKEN, which never fires `push:` here). infra/bootstrap holds
+# the roles this assumes, so it is the one root applied by hand (`make bootstrap`).
+name: Infra
+
+on:
+  pull_request:
+    paths:
+      - infra/**
+      - .github/workflows/infra.yml
+  push:
+    branches: [main]
+    paths:
+      - infra/**
+      - .github/workflows/infra.yml
+  workflow_call:
+    inputs:
+      target:
+        description: Which environment to apply — `staging` or `production`.
+        type: string
+        required: true
+      sha:
+        description: Commit to apply. Defaults to the caller's ref.
+        type: string
+        required: false
+        default: ""
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which environment to apply
+        type: choice
+        options: [staging, production]
+        required: true
+        default: staging
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+  TERRAFORM_VERSION: 1.16.4
+  ACCOUNT: "992382417038"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    name: Check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+      - run: make validate
+
+  plan:
+    name: Plan ${{ matrix.env }}
+    # fork PRs get no OIDC token, so they stop at Check
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [staging, production]
+    defaults:
+      run:
+        working-directory: infra/envs/${{ matrix.env }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ env.ACCOUNT }}:role/home-dash-infra-plan
+          aws-region: eu-west-2
+      - run: terraform init
+      # read-only role: it can't write the lock file, and nothing is applied anyway
+      - run: terraform plan -lock=false -no-color -out=tfplan
+      - name: Summary
+        run: |
+          {
+            echo "## Plan: ${{ matrix.env }}"
+            echo
+            echo '```'
+            terraform show -no-color tfplan | head -c 60000
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    name: Apply ${{ inputs.target || 'staging' }}
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # infra-staging / infra-production: branch policy `main`, and the only subjects the
+    # apply role trusts
+    environment: infra-${{ inputs.target || 'staging' }}
+    concurrency:
+      group: infra-${{ inputs.target || 'staging' }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/envs/${{ inputs.target || 'staging' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ env.ACCOUNT }}:role/home-dash-infra-apply
+          aws-region: eu-west-2
+      - run: terraform init
+      - run: terraform apply -auto-approve -no-color
+      - name: Summary
+        run: |
+          {
+            echo "## Applied ${{ inputs.target || 'staging' }}"
+            echo
+            echo '```'
+            terraform output -no-color
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -73,8 +73,9 @@ Env vars, endpoints and the auth contract are in [backend/README.md](./backend/R
 ## Infra
 
 The gallery's photo storage (S3 + CloudFront, personal AWS account) is Terraform in
-[`infra/`](./infra/README.md), one root per environment. It is applied by hand
-(`make apply ENV=staging`), not by CI.
+[`infra/`](./infra/README.md), one root per environment, applied by CI: PRs get a plan, a
+merge to `main` applies staging and **Promote to production** applies production. Only
+`infra/bootstrap` (state bucket, CI's OIDC roles) is applied by hand.
 
 ## Contributing, commits & versioning
 
