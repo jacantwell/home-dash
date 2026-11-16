@@ -30,11 +30,11 @@ make output ENV=staging    # the PHOTOS_* values for Vercel
 
 ## Vercel env vars
 
-| Var                                                         | From                                     |
-| ----------------------------------------------------------- | ---------------------------------------- |
-| `PHOTOS_BUCKET`, `PHOTOS_REGION`, `PHOTOS_CDN_URL`, `PHOTOS_CDN_KEY_PAIR_ID` | `make output`                            |
-| `PHOTOS_CDN_PRIVATE_KEY`                                    | the signing key's PEM, base64 on one line |
-| `PHOTOS_AWS_ACCESS_KEY_ID`, `PHOTOS_AWS_SECRET_ACCESS_KEY`   | `aws iam create-access-key` for the user |
+| Var                                                                          | From                                      |
+| ---------------------------------------------------------------------------- | ----------------------------------------- |
+| `PHOTOS_BUCKET`, `PHOTOS_REGION`, `PHOTOS_CDN_URL`, `PHOTOS_CDN_KEY_PAIR_ID` | `make output`                             |
+| `PHOTOS_CDN_PRIVATE_KEY`                                                     | the signing key's PEM, base64 on one line |
+| `PHOTOS_AWS_ACCESS_KEY_ID`, `PHOTOS_AWS_SECRET_ACCESS_KEY`                   | `aws iam create-access-key` for the user  |
 
 ## Rotating the signing key
 

@@ -70,6 +70,12 @@ make test && make lint
 
 Env vars, endpoints and the auth contract are in [backend/README.md](./backend/README.md).
 
+## Infra
+
+The gallery's photo storage (S3 + CloudFront, personal AWS account) is Terraform in
+[`infra/`](./infra/README.md), one root per environment. It is applied by hand
+(`make apply ENV=staging`), not by CI.
+
 ## Contributing, commits & versioning
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). TL;DR: Conventional Commit PR titles, squash-merge,
@@ -98,6 +104,7 @@ except the Pi is split along that line:
 | Pi                         | same `LEDBOARD_URL`                   | same `LEDBOARD_URL`                 |
 | `CLERK_AUTHORIZED_PARTIES` | `https://staging.worm.beer`           | `https://worm.beer`                 |
 | Google Calendar            | `House-Staging` calendar              | `House` calendar (on the board)     |
+| Photos (S3 + CloudFront)   | `home-dash-photos-staging-…` bucket   | `home-dash-photos-production-…`     |
 
 The Neon `staging` branch is a copy-on-write fork of `main`; reset it from the parent in the Neon
 console whenever staging needs prod-shaped data again. Because the Pi is shared and verifies the
