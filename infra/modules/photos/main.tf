@@ -148,12 +148,12 @@ resource "aws_iam_user_policy" "backend" {
         Resource = "${aws_s3_bucket.photos.arn}/albums/*"
       },
       {
-        # lets HeadObject say 404 instead of 403, and album deletes find their objects
-        Sid       = "List"
-        Effect    = "Allow"
-        Action    = "s3:ListBucket"
-        Resource  = aws_s3_bucket.photos.arn
-        Condition = { StringLike = { "s3:prefix" = ["albums/*"] } }
+        # lets HeadObject say 404 instead of 403 (no prefix condition: HeadObject
+        # doesn't send one), and album deletes find their objects
+        Sid      = "List"
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = aws_s3_bucket.photos.arn
       },
     ]
   })
