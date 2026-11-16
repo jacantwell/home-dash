@@ -318,3 +318,184 @@ export function displayName(name: string | null | undefined): string {
   if (!name || name.startsWith("user_")) return "someone";
   return name;
 }
+
+// Gallery: albums of photos in S3, served through signed CloudFront URLs that
+// last 6-12h. Mirrors api/gallery.py. Signed-in only.
+export interface AlbumSummary {
+  id: string;
+  title: string;
+  created_by_name: string;
+  photo_count: number;
+  cover_url: string | null;
+  deletable: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Photo {
+  id: string;
+  album_id: string;
+  uploader_name: string;
+  content_type: string;
+  bytes: number;
+  width: number;
+  height: number;
+  thumb_url: string;
+  display_url: string;
+  original_url: string;
+  deletable: boolean;
+  created_at: string;
+}
+
+// Canvas position of one photo: centre (x, y) in board units, rotation in degrees,
+// scale, stacking order. See lib/canvas.ts.
+export interface Placement {
+  x: number;
+  y: number;
+  r: number;
+  s: number;
+  z: number;
+}
+
+export type Layout = Record<string, Placement>;
+
+export interface Album extends AlbumSummary {
+  layout: Layout;
+  photos: Photo[];
+}
+
+export type PhotoVariant = "original" | "display" | "thumb";
+
+// POST `fields` then the file (last) as multipart/form-data to `url`.
+export interface PresignedPost {
+  url: string;
+  fields: Record<string, string>;
+}
+
+export interface UploadTicket {
+  photo_id: string;
+  uploads: Record<PhotoVariant, PresignedPost>;
+}
+
+export interface NewUpload {
+  content_type: string;
+  bytes: number;
+  width: number;
+  height: number;
+}
+
+export const MAX_ALBUM_TITLE_LENGTH = 80;
+export const MAX_ORIGINAL_BYTES = 50 * 1024 * 1024;
+export const ORIGINAL_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/heic",
+  "image/heif",
+  "image/webp",
+  "image/gif",
+] as const;
+
+export async function listAlbums(token: string, fetchImpl?: FetchLike): Promise<AlbumSummary[]> {
+  const body = await request<{ albums: AlbumSummary[] }>(
+    "/api/albums",
+    token,
+    { method: "GET" },
+    fetchImpl,
+  );
+  return body.albums;
+}
+
+export function createAlbum(
+  token: string,
+  title: string,
+  fetchImpl?: FetchLike,
+): Promise<AlbumSummary> {
+  return request<AlbumSummary>(
+    "/api/albums",
+    token,
+    { method: "POST", body: JSON.stringify({ title }) },
+    fetchImpl,
+  );
+}
+
+export function getAlbum(token: string, id: string, fetchImpl?: FetchLike): Promise<Album> {
+  return request<Album>(
+    `/api/albums/${encodeURIComponent(id)}`,
+    token,
+    { method: "GET" },
+    fetchImpl,
+  );
+}
+
+export async function deleteAlbum(token: string, id: string, fetchImpl?: FetchLike): Promise<void> {
+  await request<null>(
+    `/api/albums/${encodeURIComponent(id)}`,
+    token,
+    { method: "DELETE" },
+    fetchImpl,
+  );
+}
+
+export async function saveLayout(
+  token: string,
+  id: string,
+  layout: Layout,
+  fetchImpl?: FetchLike,
+): Promise<Layout> {
+  const body = await request<{ layout: Layout }>(
+    `/api/albums/${encodeURIComponent(id)}/layout`,
+    token,
+    { method: "PUT", body: JSON.stringify({ items: layout }) },
+    fetchImpl,
+  );
+  return body.layout;
+}
+
+export function startUpload(
+  token: string,
+  albumId: string,
+  upload: NewUpload,
+  fetchImpl?: FetchLike,
+): Promise<UploadTicket> {
+  return request<UploadTicket>(
+    `/api/albums/${encodeURIComponent(albumId)}/photos`,
+    token,
+    { method: "POST", body: JSON.stringify(upload) },
+    fetchImpl,
+  );
+}
+
+export function completeUpload(
+  token: string,
+  photoId: string,
+  fetchImpl?: FetchLike,
+): Promise<Photo> {
+  return request<Photo>(
+    `/api/photos/${encodeURIComponent(photoId)}/complete`,
+    token,
+    { method: "POST" },
+    fetchImpl,
+  );
+}
+
+export async function deletePhoto(token: string, id: string, fetchImpl?: FetchLike): Promise<void> {
+  await request<null>(
+    `/api/photos/${encodeURIComponent(id)}`,
+    token,
+    { method: "DELETE" },
+    fetchImpl,
+  );
+}
+
+// Straight to S3, no auth header: the signed form fields are the credential.
+export async function postToS3(
+  post: PresignedPost,
+  file: Blob,
+  fetchImpl: FetchLike = fetch,
+): Promise<void> {
+  const form = new FormData();
+  for (const [name, value] of Object.entries(post.fields)) form.append(name, value);
+  form.append("file", file);
+  const res = await fetchImpl(post.url, { method: "POST", body: form });
+  if (!res.ok) throw new ApiError(res.status, `Upload to storage failed (${res.status})`);
+}

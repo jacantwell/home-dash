@@ -99,6 +99,20 @@ GGG...GGG...
 .#RRRRRRRRRR#.
 ..##RRRRRR##..
 ....######....`,
+  picture: `
+################
+#WWWWWWWWWWWWWW#
+#WBBBBBBBBBBBBW#
+#WBBBBBBBBYYBBW#
+#WBBBBBBBBYYBBW#
+#WBBBBBBBBBBBBW#
+#WBBBBGBBBBBBBW#
+#WBBBGGGBBBBBBW#
+#WBBGGGGGBBGBBW#
+#WBGGGGGGGGGGBW#
+#WGGGGGGGGGGGGW#
+#WWWWWWWWWWWWWW#
+################`,
   pencil: `
 ..........###...
 .........#RRR#..
