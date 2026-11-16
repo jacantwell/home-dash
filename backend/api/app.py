@@ -13,6 +13,8 @@ from api.calendar import Calendar, CalendarError, CalendarEvent, GoogleCalendar,
 from api.comments import Comment, CommentRepo, get_comment_repo
 from api.config import Settings
 from api.db import Message, MessageRepo, get_repo
+from api.gallery import router as gallery_router
+from api.photos import PhotoStore
 from api.sprites import (
     NAME_MAX,
     NAME_PATTERN,
@@ -218,6 +220,7 @@ def create_app(
     settings: Settings,
     verifier: ClerkVerifier | None = None,
     calendar: Calendar | None = None,
+    photo_store: PhotoStore | None = None,
 ) -> FastAPI:
     app = FastAPI(title="home-dash-api", version="0.1.0")
     app.state.settings = settings
@@ -228,6 +231,9 @@ def create_app(
     if calendar is None and settings.google_calendar_id and settings.google_service_account_json:
         calendar = GoogleCalendar(settings.google_calendar_id, settings.google_service_account_json)
     app.state.calendar = calendar
+    # None -> built on first use from settings (see get_photo_store)
+    app.state.photo_store = photo_store
+    app.include_router(gallery_router)
 
     @app.get("/api/healthz")
     def healthz() -> dict[str, bool]:

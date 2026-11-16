@@ -35,6 +35,28 @@ class Settings(BaseSettings):
     google_calendar_id: str = ""
     # the service account's whole json key, one line; Vercel has no file to point at
     google_service_account_json: str = ""
+    # gallery: S3 bucket + CloudFront, from `make output` in infra/. AWS_* names are
+    # reserved on Vercel, hence the PHOTOS_ prefix on the credentials.
+    photos_bucket: str = ""
+    photos_region: str = "eu-west-2"
+    photos_cdn_url: str = ""
+    photos_cdn_key_pair_id: str = ""
+    photos_cdn_private_key: str = ""
+    photos_aws_access_key_id: str = ""
+    photos_aws_secret_access_key: str = ""
+
+    @property
+    def photos_configured(self) -> bool:
+        return all(
+            (
+                self.photos_bucket,
+                self.photos_cdn_url,
+                self.photos_cdn_key_pair_id,
+                self.photos_cdn_private_key,
+                self.photos_aws_access_key_id,
+                self.photos_aws_secret_access_key,
+            )
+        )
 
     @property
     def issuer(self) -> str:

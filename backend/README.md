@@ -38,34 +38,45 @@ The schema lives in `migrations/versions/` as Alembic revisions written in plain
 
 Read from the process env, then `../.env.local` (the repo's), then `backend/.env` (later wins).
 
-| Var                                 | Purpose                                                                                                 |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                      | Neon connection string (pooled). One connection per request.                                            |
-| `LEDBOARD_URL`                      | Base URL of the Pi daemon, default `http://localhost:8080`.                                             |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk issuer is derived from it (`pk_test_<b64(frontend-api-host$)>`).                                  |
-| `CLERK_ISSUER`                      | Optional override of the derived issuer.                                                                |
-| `CLERK_AUTHORIZED_PARTIES`          | Comma list of origins allowed in the token's `azp` and in etch `Origin`/`Referer`. Empty = don't check. |
-| `GOOGLE_CALENDAR_ID`                | The house calendar's id (`...@group.calendar.google.com`). Preview/dev point at a test calendar.        |
-| `GOOGLE_SERVICE_ACCOUNT_JSON`       | The `home-dash-writer` service account's whole json key, on one line.                                   |
+| Var                                 | Purpose                                                                                                  |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                      | Neon connection string (pooled). One connection per request.                                             |
+| `LEDBOARD_URL`                      | Base URL of the Pi daemon, default `http://localhost:8080`.                                              |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk issuer is derived from it (`pk_test_<b64(frontend-api-host$)>`).                                   |
+| `CLERK_ISSUER`                      | Optional override of the derived issuer.                                                                 |
+| `CLERK_AUTHORIZED_PARTIES`          | Comma list of origins allowed in the token's `azp` and in etch `Origin`/`Referer`. Empty = don't check.  |
+| `GOOGLE_CALENDAR_ID`                | The house calendar's id (`...@group.calendar.google.com`). Preview/dev point at a test calendar.         |
+| `GOOGLE_SERVICE_ACCOUNT_JSON`       | The `home-dash-writer` service account's whole json key, on one line.                                    |
+| `PHOTOS_*`                          | Gallery storage: bucket, region, CloudFront URL/key pair id/private key, IAM key. See `infra/README.md`. |
+
+Gallery routes answer `503` until every `PHOTOS_*` var is set.
 
 Without an issuer the service still boots (`/api/healthz` works) and protected routes answer 503.
 
 ## Endpoints
 
-| Method | Path                                      | Auth     | Response                                           |
-| ------ | ----------------------------------------- | -------- | -------------------------------------------------- |
-| GET    | `/api/healthz`                            | no       | `200 {"ok": true}`                                 |
-| GET    | `/api/messages?limit=20`                  | yes      | `200 {"messages": [Message]}` newest first, 1..100 |
-| POST   | `/api/messages`                           | yes      | `202 Message`; `429` passthrough if the Pi says so |
-| GET    | `/api/chatroom/{slug}/comments?limit=100` | no       | `200 {"comments": [Comment]}` oldest first, 1..200 |
-| POST   | `/api/chatroom/{slug}/comments`           | no       | `201 Comment`                                      |
-| GET    | `/api/etch`                               | frontend | `200` sketch state, proxied from the Pi            |
-| POST   | `/api/etch/move`                          | frontend | `200 {"x","y"}`; nudges the stylus                 |
-| POST   | `/api/etch/clear`                         | frontend | `200 {"cleared","x","y"}`; shakes the screen clean |
-| GET    | `/api/sprites?limit=200`                  | no       | `200 {"sprites": [Sprite]}` newest first, 1..500   |
-| POST   | `/api/sprites`                            | yes      | `201 Sprite`; `409` if the name is taken           |
-| GET    | `/api/events?limit=20`                    | yes      | `200 {"events": [CalendarEvent]}` soonest, 1..100  |
-| POST   | `/api/events`                             | yes      | `201 CalendarEvent`; `502` if Google says no       |
+| Method | Path                                      | Auth                      | Response                                               |
+| ------ | ----------------------------------------- | ------------------------- | ------------------------------------------------------ |
+| GET    | `/api/healthz`                            | no                        | `200 {"ok": true}`                                     |
+| GET    | `/api/messages?limit=20`                  | yes                       | `200 {"messages": [Message]}` newest first, 1..100     |
+| POST   | `/api/messages`                           | yes                       | `202 Message`; `429` passthrough if the Pi says so     |
+| GET    | `/api/chatroom/{slug}/comments?limit=100` | no                        | `200 {"comments": [Comment]}` oldest first, 1..200     |
+| POST   | `/api/chatroom/{slug}/comments`           | no                        | `201 Comment`                                          |
+| GET    | `/api/etch`                               | frontend                  | `200` sketch state, proxied from the Pi                |
+| POST   | `/api/etch/move`                          | frontend                  | `200 {"x","y"}`; nudges the stylus                     |
+| POST   | `/api/etch/clear`                         | frontend                  | `200 {"cleared","x","y"}`; shakes the screen clean     |
+| GET    | `/api/sprites?limit=200`                  | no                        | `200 {"sprites": [Sprite]}` newest first, 1..500       |
+| POST   | `/api/sprites`                            | yes                       | `201 Sprite`; `409` if the name is taken               |
+| GET    | `/api/events?limit=20`                    | yes                       | `200 {"events": [CalendarEvent]}` soonest, 1..100      |
+| POST   | `/api/events`                             | yes                       | `201 CalendarEvent`; `502` if Google says no           |
+| GET    | `/api/albums?limit=100`                   | yes                       | `200 {"albums": [AlbumSummary]}` latest activity first |
+| POST   | `/api/albums`                             | yes                       | `201 AlbumSummary`                                     |
+| GET    | `/api/albums/{id}`                        | yes                       | `200 Album` with ready photos and the layout           |
+| DELETE | `/api/albums/{id}`                        | creator                   | `204`; S3 objects first, `502` if that fails           |
+| PUT    | `/api/albums/{id}/layout`                 | yes                       | `200 {"layout"}`; unknown photo ids are dropped        |
+| POST   | `/api/albums/{id}/photos`                 | yes                       | `201 UploadTicket`: a presigned POST per variant       |
+| POST   | `/api/photos/{id}/complete`               | yes                       | `200 Photo`; `409` if a variant isn't in S3 yet        |
+| DELETE | `/api/photos/{id}`                        | uploader or album creator | `204`                                                  |
 
 POST body: `{"text": "1..200 chars after trim", "color": "#rrggbb" | null, "duration_s": 1..60 | null}`.
 `duration_s` is how many seconds the board shows it for (scrolling text loops until it elapses);
@@ -132,3 +143,21 @@ day; no `end_time` means an hour; an end before the start runs past midnight. `C
 `{"id", "title", "start", "end", "all_day", "location", "link"}`, where `start`/`end` are ISO
 dateTimes, or dates with an exclusive end when `all_day`. Both routes answer `503` until both
 `GOOGLE_*` vars are set.
+
+### Gallery
+
+Albums and photos live in Neon, the bytes in S3 under `albums/<album>/<photo>/<variant>.<ext>`,
+served through CloudFront URLs signed with a canned policy (expiry snapped to a 6h window, so
+URLs are stable for caching). Uploading is three calls: `POST /api/albums/{id}/photos` with
+`{"content_type", "bytes", "width", "height"}` reserves a pending photo and returns
+`{"photo_id", "uploads": {"original"|"display"|"thumb": {"url", "fields"}}}`; the browser POSTs
+each file to S3 (fields first, `file` last; original up to 50MB in its own type, display/thumb
+JPEGs up to 10MB); then `POST /api/photos/{id}/complete` checks all three landed. Layout is
+`{"items": {"<photo id>": {"x": 0..2400, "y": 0..1600, "r": -180..180, "s": 0.25..4, "z": int}}}`.
+
+```
+AlbumSummary = {id, title, created_by_name, photo_count, cover_url, deletable, created_at, updated_at}
+Album        = AlbumSummary + {layout, photos: [Photo]}
+Photo        = {id, album_id, uploader_name, content_type, bytes, width, height,
+                thumb_url, display_url, original_url, deletable, created_at}
+```

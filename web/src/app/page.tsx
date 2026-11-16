@@ -41,6 +41,13 @@ const ENTRIES = [
     description: "Draw 16x16 pixel-art sprites and browse the house catalog",
   },
   {
+    href: "/gallery",
+    name: "gallery/",
+    icon: "folder",
+    size: "-",
+    description: "House photo albums; pin them to a corkboard",
+  },
+  {
     href: "/split",
     name: "split/",
     icon: "folder",

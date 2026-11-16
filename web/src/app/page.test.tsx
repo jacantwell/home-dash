@@ -18,6 +18,7 @@ describe("Home page", () => {
     ["etch/", "/etch"],
     ["calendar/", "/calendar"],
     ["sprites/", "/sprites"],
+    ["gallery/", "/gallery"],
     ["split/", "/split"],
     ["terms.html", "/terms"],
   ])("lists %s pointing at %s", (name, href) => {
