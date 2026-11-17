@@ -1,0 +1,492 @@
+import {
+  BoxGeometry,
+  BufferGeometry,
+  CanvasTexture,
+  CircleGeometry,
+  Color,
+  DirectionalLight,
+  Fog,
+  GridHelper,
+  Group,
+  HemisphereLight,
+  Line,
+  LineBasicMaterial,
+  Mesh,
+  MeshBasicMaterial,
+  MeshLambertMaterial,
+  PerspectiveCamera,
+  PlaneGeometry,
+  Raycaster,
+  Scene,
+  SRGBColorSpace,
+  type Texture,
+  TextureLoader,
+  Vector2,
+  Vector3,
+  WebGLRenderer,
+} from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+
+import { displayName, type Layout, type Photo, type Placement } from "@/lib/api";
+import {
+  cardSize,
+  clampPlacement,
+  fitView,
+  FRAME_CAPTION,
+  FRAME_SIDE,
+  frameSize,
+  planeHit,
+  SPACE_H,
+  SPACE_HALF,
+  type Vec3,
+} from "@/lib/space";
+
+export interface SceneEvents {
+  onSelect: (id: string | null) => void;
+  onMove: (id: string, p: Placement) => void;
+  onOpen: (id: string) => void;
+}
+
+type Drag = {
+  id: string;
+  pointer: number;
+  from: Vector2;
+  start: Placement;
+  mode: "move" | "depth" | "turn";
+  plane: { point: Vec3; normal: Vec3 };
+  grab: Vec3;
+  moved: boolean;
+};
+
+interface Card {
+  photo: Photo;
+  group: Group;
+  frame: Mesh<BoxGeometry, MeshLambertMaterial>;
+  image: Mesh<PlaneGeometry, MeshBasicMaterial>;
+  caption: Mesh<PlaneGeometry, MeshBasicMaterial>;
+  shadow: Mesh<CircleGeometry, MeshBasicMaterial>;
+  placement: Placement;
+}
+
+const FOV = 50;
+const TAP_SLOP_PX = 4;
+const SKY = "#a9c8e8";
+const SEL = "#316ac5";
+const FRAME = "#fdfcf7";
+const DEG = Math.PI / 180;
+
+function captionTexture(name: string, w: number): CanvasTexture {
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = w * scale;
+  canvas.height = FRAME_CAPTION * scale;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = FRAME;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#333";
+    ctx.font = `${26 * scale}px "Comic Sans MS", "Chalkboard SE", cursive`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, canvas.width / 2, canvas.height / 2, canvas.width - 16 * scale);
+  }
+  const tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  return tex;
+}
+
+function shadowTexture(): CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, "rgba(40,25,10,0.45)");
+    g.addColorStop(1, "rgba(40,25,10,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 64);
+  }
+  return new CanvasTexture(canvas);
+}
+
+/** The 3D canvas. Owns the WebGL side; React owns the layout and hands it in via `sync`. */
+export class SpaceScene {
+  private renderer: WebGLRenderer;
+  private scene = new Scene();
+  private camera = new PerspectiveCamera(FOV, 1, 10, 30000);
+  private controls: OrbitControls;
+  private raycaster = new Raycaster();
+  private loader = new TextureLoader().setCrossOrigin("anonymous");
+  private shadowTex = shadowTexture();
+  private cards = new Map<string, Card>();
+  private selected: string | null = null;
+  private stalk: Line;
+  private drag: Drag | null = null;
+  private empty: { from: Vector2; pointer: number } | null = null;
+  private dirty = true;
+  private frame = 0;
+  private resize: ResizeObserver;
+  private fitted = false;
+
+  constructor(
+    private container: HTMLElement,
+    private events: SceneEvents,
+  ) {
+    this.renderer = new WebGLRenderer({ antialias: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.domElement.className = "space-canvas";
+    container.prepend(this.renderer.domElement);
+
+    this.scene.background = new Color(SKY);
+    this.scene.fog = new Fog(SKY, 7000, 16000);
+    this.scene.add(new HemisphereLight("#ffffff", "#8a5a2b", 2.2));
+    const sun = new DirectionalLight("#fff6e8", 1.4);
+    sun.position.set(800, 2000, 1200);
+    this.scene.add(sun);
+
+    const floor = new Mesh(
+      new PlaneGeometry(SPACE_HALF * 2, SPACE_HALF * 2),
+      new MeshLambertMaterial({ color: "#c49a63" }),
+    );
+    floor.rotation.x = -Math.PI / 2;
+    this.scene.add(floor);
+    const grid = new GridHelper(SPACE_HALF * 2, 24, "#8a5a2b", "#a87a45");
+    grid.position.y = 0.5;
+    this.scene.add(grid);
+
+    // line from the selected photo down to the floor, so you can tell how far back it is
+    this.stalk = new Line(
+      new BufferGeometry().setFromPoints([new Vector3(), new Vector3()]),
+      new LineBasicMaterial({ color: SEL }),
+    );
+    this.stalk.visible = false;
+    this.scene.add(this.stalk);
+
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.minDistance = 150;
+    this.controls.maxDistance = SPACE_HALF * 3;
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.02;
+    this.controls.addEventListener("change", () => {
+      this.keepTargetInside();
+      this.invalidate();
+    });
+
+    // capture phase on the container: runs before OrbitControls sees the pointer
+    container.addEventListener("pointerdown", this.onDown, true);
+    container.addEventListener("pointermove", this.onMove);
+    container.addEventListener("pointerup", this.onUp);
+    container.addEventListener("pointercancel", this.onUp);
+    container.addEventListener("dblclick", this.onDoubleClick);
+
+    this.resize = new ResizeObserver(() => this.fitSize());
+    this.resize.observe(container);
+    this.fitSize();
+    this.loop();
+  }
+
+  sync(photos: Photo[], layout: Layout, selected: string | null) {
+    const ids = new Set(photos.map((p) => p.id));
+    for (const [id, card] of this.cards) {
+      if (!ids.has(id) || !layout[id]) this.drop(id, card);
+    }
+    for (const photo of photos) {
+      const p = layout[photo.id];
+      if (!p) continue;
+      const card = this.cards.get(photo.id) ?? this.add(photo);
+      if (this.drag?.id !== photo.id) this.place(card, p);
+    }
+    this.select(selected);
+    if (!this.fitted && this.cards.size) {
+      this.fitted = true;
+      this.fit(layout, photos);
+    }
+    this.invalidate();
+  }
+
+  fit(layout: Layout, photos: Photo[]) {
+    const { width, height } = this.container.getBoundingClientRect();
+    const view = fitView(layout, photos, FOV, width / Math.max(height, 1) || 1.5);
+    this.controls.target.set(view.target.x, view.target.y, view.target.z);
+    this.camera.position.set(view.position.x, view.position.y, view.position.z);
+    this.controls.update();
+    this.invalidate();
+  }
+
+  /** Where the camera sits, in world units. */
+  eye(): Vec3 {
+    const { x, y, z } = this.camera.position;
+    return { x, y, z };
+  }
+
+  /** Which way round the vertical the camera looks from, in degrees (0 = looking down -z). */
+  viewYaw(): number {
+    return this.controls.getAzimuthalAngle() / DEG;
+  }
+
+  dispose() {
+    cancelAnimationFrame(this.frame);
+    this.resize.disconnect();
+    this.container.removeEventListener("pointerdown", this.onDown, true);
+    this.container.removeEventListener("pointermove", this.onMove);
+    this.container.removeEventListener("pointerup", this.onUp);
+    this.container.removeEventListener("pointercancel", this.onUp);
+    this.container.removeEventListener("dblclick", this.onDoubleClick);
+    for (const [id, card] of this.cards) this.drop(id, card);
+    this.shadowTex.dispose();
+    this.controls.dispose();
+    this.scene.traverse((o) => {
+      if (o instanceof Mesh || o instanceof Line) {
+        o.geometry.dispose();
+        o.material.dispose();
+      }
+    });
+    this.renderer.dispose();
+    this.renderer.domElement.remove();
+  }
+
+  // --- cards ---
+
+  private add(photo: Photo): Card {
+    const img = cardSize(photo);
+    const { w, h } = frameSize(photo);
+    const group = new Group();
+    group.rotation.order = "YXZ";
+    group.userData.id = photo.id;
+
+    const frame = new Mesh(
+      new BoxGeometry(w, h, 6),
+      new MeshLambertMaterial({ color: FRAME, emissive: SEL, emissiveIntensity: 0 }),
+    );
+    frame.userData.id = photo.id;
+    group.add(frame);
+
+    const image = new Mesh(
+      new PlaneGeometry(img.w, img.h),
+      new MeshBasicMaterial({ color: "#d8d2c4" }),
+    );
+    image.position.set(0, h / 2 - FRAME_SIDE - img.h / 2, 3.2);
+    group.add(image);
+    this.loader.load(photo.display_url, (tex) => this.setTexture(photo.id, tex));
+
+    const caption = new Mesh(
+      new PlaneGeometry(w, FRAME_CAPTION),
+      new MeshBasicMaterial({ map: captionTexture(displayName(photo.uploader_name), w) }),
+    );
+    caption.position.set(0, -h / 2 + FRAME_CAPTION / 2, 3.1);
+    group.add(caption);
+
+    const shadow = new Mesh(
+      new CircleGeometry(w * 0.6, 32),
+      new MeshBasicMaterial({ map: this.shadowTex, transparent: true, depthWrite: false }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    this.scene.add(shadow);
+
+    this.scene.add(group);
+    const card: Card = {
+      photo,
+      group,
+      frame,
+      image,
+      caption,
+      shadow,
+      placement: { x: 0, y: 0, z: 0, yaw: 0, r: 0, s: 1 },
+    };
+    this.cards.set(photo.id, card);
+    return card;
+  }
+
+  private setTexture(id: string, tex: Texture) {
+    const card = this.cards.get(id);
+    if (!card) {
+      tex.dispose();
+      return;
+    }
+    tex.colorSpace = SRGBColorSpace;
+    tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    card.image.material.map = tex;
+    card.image.material.color.set("#ffffff");
+    card.image.material.needsUpdate = true;
+    this.invalidate();
+  }
+
+  private drop(id: string, card: Card) {
+    this.scene.remove(card.group, card.shadow);
+    for (const mesh of [card.frame, card.image, card.caption]) {
+      mesh.geometry.dispose();
+      mesh.material.map?.dispose();
+      mesh.material.dispose();
+    }
+    card.shadow.geometry.dispose();
+    card.shadow.material.dispose();
+    this.cards.delete(id);
+    if (this.selected === id) this.selected = null;
+  }
+
+  private place(card: Card, p: Placement) {
+    card.placement = p;
+    card.group.position.set(p.x, p.y, p.z);
+    card.group.rotation.set(0, p.yaw * DEG, -p.r * DEG);
+    card.group.scale.setScalar(p.s);
+    card.shadow.position.set(p.x, 1 + Math.min(p.y, 200) * 0.002, p.z);
+    card.shadow.scale.setScalar(p.s * (1 + p.y / 2000));
+    if (this.selected === card.photo.id) this.moveStalk(card);
+    this.invalidate();
+  }
+
+  private select(id: string | null) {
+    if (this.selected === id) return;
+    const prev = this.selected && this.cards.get(this.selected);
+    if (prev) prev.frame.material.emissiveIntensity = 0;
+    this.selected = id && this.cards.has(id) ? id : null;
+    const card = this.selected && this.cards.get(this.selected);
+    this.stalk.visible = Boolean(card);
+    if (card) {
+      card.frame.material.emissiveIntensity = 0.45;
+      this.moveStalk(card);
+    }
+    this.invalidate();
+  }
+
+  private moveStalk(card: Card) {
+    const { x, y, z } = card.group.position;
+    this.stalk.geometry.setFromPoints([new Vector3(x, y, z), new Vector3(x, 0, z)]);
+  }
+
+  // --- pointer ---
+
+  private ray(e: PointerEvent | MouseEvent) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(ndc, this.camera);
+    return this.raycaster.ray;
+  }
+
+  private pick(e: PointerEvent | MouseEvent): { id: string; point: Vec3 } | null {
+    this.ray(e);
+    const frames = [...this.cards.values()].map((c) => c.frame);
+    const hit = this.raycaster.intersectObjects(frames, false)[0];
+    return hit ? { id: hit.object.userData.id as string, point: hit.point } : null;
+  }
+
+  private onDown = (e: PointerEvent) => {
+    if (e.button !== 0 || e.target !== this.renderer.domElement) return;
+    const hit = this.pick(e);
+    if (!hit) {
+      this.empty = { from: new Vector2(e.clientX, e.clientY), pointer: e.pointerId };
+      return;
+    }
+    // ours, not the camera's
+    this.controls.enabled = false;
+    this.container.setPointerCapture(e.pointerId);
+    const card = this.cards.get(hit.id)!;
+    const pos = card.group.position;
+    const mode = e.altKey ? "turn" : e.shiftKey ? "depth" : "move";
+    const look = this.camera.getWorldDirection(new Vector3());
+    const normal = mode === "depth" ? { x: 0, y: 1, z: 0 } : { x: look.x, y: look.y, z: look.z };
+    const point = { x: pos.x, y: pos.y, z: pos.z };
+    const ray = this.raycaster.ray;
+    const at = planeHit(ray.origin, ray.direction, point, normal) ?? point;
+    this.drag = {
+      id: hit.id,
+      pointer: e.pointerId,
+      from: new Vector2(e.clientX, e.clientY),
+      start: card.placement,
+      mode,
+      plane: { point, normal },
+      grab: { x: at.x - pos.x, y: at.y - pos.y, z: at.z - pos.z },
+      moved: false,
+    };
+    this.events.onSelect(hit.id);
+  };
+
+  private onMove = (e: PointerEvent) => {
+    const d = this.drag;
+    if (!d) {
+      if (e.buttons === 0 && e.target === this.renderer.domElement) {
+        this.renderer.domElement.style.cursor = this.pick(e) ? "grab" : "";
+      }
+      return;
+    }
+    if (e.pointerId !== d.pointer) return;
+    const dx = e.clientX - d.from.x;
+    const dy = e.clientY - d.from.y;
+    if (!d.moved && Math.hypot(dx, dy) < TAP_SLOP_PX) return;
+    d.moved = true;
+    this.renderer.domElement.style.cursor = "grabbing";
+
+    let next: Placement;
+    if (d.mode === "turn") {
+      next = { ...d.start, yaw: d.start.yaw + dx * 0.5, s: d.start.s * 2 ** (-dy / 200) };
+    } else {
+      const ray = this.ray(e);
+      const at = planeHit(ray.origin, ray.direction, d.plane.point, d.plane.normal);
+      if (!at) return;
+      next = { ...d.start, x: at.x - d.grab.x, y: at.y - d.grab.y, z: at.z - d.grab.z };
+      if (d.mode === "depth") next.y = d.start.y;
+    }
+    next = clampPlacement(next);
+    const card = this.cards.get(d.id);
+    if (card) this.place(card, next);
+    this.events.onMove(d.id, next);
+  };
+
+  private onUp = (e: PointerEvent) => {
+    if (this.drag && e.pointerId === this.drag.pointer) {
+      this.container.releasePointerCapture?.(e.pointerId);
+      this.drag = null;
+      this.controls.enabled = true;
+      this.renderer.domElement.style.cursor = "";
+      return;
+    }
+    if (this.empty && e.pointerId === this.empty.pointer) {
+      const still = Math.hypot(e.clientX - this.empty.from.x, e.clientY - this.empty.from.y);
+      // a click on empty space (not the end of an orbit) clears the selection
+      if (still < TAP_SLOP_PX) this.events.onSelect(null);
+      this.empty = null;
+    }
+  };
+
+  private onDoubleClick = (e: MouseEvent) => {
+    const hit = this.pick(e);
+    if (hit) this.events.onOpen(hit.id);
+  };
+
+  // --- frame loop ---
+
+  private keepTargetInside() {
+    const t = this.controls.target;
+    const clampTo = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    t.set(
+      clampTo(t.x, -SPACE_HALF, SPACE_HALF),
+      clampTo(t.y, 0, SPACE_H),
+      clampTo(t.z, -SPACE_HALF, SPACE_HALF),
+    );
+  }
+
+  private fitSize() {
+    const { width, height } = this.container.getBoundingClientRect();
+    if (!width || !height) return;
+    this.renderer.setSize(width, height, false);
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.invalidate();
+  }
+
+  private invalidate() {
+    this.dirty = true;
+  }
+
+  private loop = () => {
+    this.frame = requestAnimationFrame(this.loop);
+    // damping keeps emitting "change" for a few frames after you let go
+    this.controls.update();
+    if (!this.dirty) return;
+    this.dirty = false;
+    this.renderer.render(this.scene, this.camera);
+  };
+}

@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from fastapi import HTTPException, Request, status
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError, field_validator
 
 from api.config import Settings
 
@@ -51,11 +51,22 @@ def photo_key(album_id: UUID, photo_id: UUID, variant: Variant, content_type: st
 
 
 class Placement(BaseModel):
+    """A photo in the 3D canvas: centre (x, y up, z), turn (yaw), tilt (r), size (s)."""
+
     x: float
     y: float
+    z: float
+    yaw: float
     r: float
     s: float
-    z: int
+
+
+def _is_placement(value: Any) -> bool:
+    try:
+        Placement.model_validate(value)
+    except ValidationError:
+        return False
+    return True
 
 
 class AlbumRow(BaseModel):
@@ -68,6 +79,14 @@ class AlbumRow(BaseModel):
     cover_photo_id: UUID | None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("layout", mode="before")
+    @classmethod
+    def _skip_stale_placements(cls, value: Any) -> Any:
+        # pre-3D entries get dropped, not 500'd
+        if not isinstance(value, dict):
+            return value
+        return {k: v for k, v in value.items() if _is_placement(v)}
 
 
 class PhotoRow(BaseModel):

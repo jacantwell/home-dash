@@ -13,6 +13,9 @@ locals {
   name = "home-dash-photos-${var.env}"
   # AWS managed "CachingOptimized": query strings (the URL signature) stay out of the cache key
   caching_optimized = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  # AWS managed "SimpleCORS": Access-Control-Allow-Origin: * so WebGL can use the images;
+  # the signed URL is still what gates access
+  simple_cors = "60669652-455b-4ae9-85a4-c4c02393f86c"
 }
 
 # --- bucket: private, only CloudFront reads, only the backend's presigned POSTs write ---
@@ -109,13 +112,14 @@ resource "aws_cloudfront_distribution" "photos" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "s3"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    cache_policy_id        = local.caching_optimized
-    compress               = true
-    trusted_key_groups     = [aws_cloudfront_key_group.signer.id]
+    target_origin_id           = "s3"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    cache_policy_id            = local.caching_optimized
+    response_headers_policy_id = local.simple_cors
+    compress                   = true
+    trusted_key_groups         = [aws_cloudfront_key_group.signer.id]
   }
 
   restrictions {
