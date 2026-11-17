@@ -4,6 +4,7 @@ import {
   CanvasTexture,
   CircleGeometry,
   Color,
+  DoubleSide,
   DirectionalLight,
   Fog,
   GridHelper,
@@ -26,14 +27,11 @@ import {
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import { displayName, type Layout, type Photo, type Placement } from "@/lib/api";
+import type { Layout, Photo, Placement } from "@/lib/api";
 import {
   cardSize,
   clampPlacement,
   fitView,
-  FRAME_CAPTION,
-  FRAME_SIDE,
-  frameSize,
   planeHit,
   SPACE_H,
   SPACE_HALF,
@@ -60,9 +58,9 @@ type Drag = {
 interface Card {
   photo: Photo;
   group: Group;
-  frame: Mesh<BoxGeometry, MeshLambertMaterial>;
+  body: Mesh<BoxGeometry, MeshLambertMaterial>;
   image: Mesh<PlaneGeometry, MeshBasicMaterial>;
-  caption: Mesh<PlaneGeometry, MeshBasicMaterial>;
+  outline: Mesh<PlaneGeometry, MeshBasicMaterial>;
   shadow: Mesh<CircleGeometry, MeshBasicMaterial>;
   placement: Placement;
 }
@@ -71,28 +69,10 @@ const FOV = 50;
 const TAP_SLOP_PX = 4;
 const SKY = "#a9c8e8";
 const SEL = "#316ac5";
-const FRAME = "#fdfcf7";
+const PAPER = "#f3f1ea";
+const THICK = 4;
+const OUTLINE = 10;
 const DEG = Math.PI / 180;
-
-function captionTexture(name: string, w: number): CanvasTexture {
-  const scale = 2;
-  const canvas = document.createElement("canvas");
-  canvas.width = w * scale;
-  canvas.height = FRAME_CAPTION * scale;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = FRAME;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#333";
-    ctx.font = `${26 * scale}px "Comic Sans MS", "Chalkboard SE", cursive`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(name, canvas.width / 2, canvas.height / 2, canvas.width - 16 * scale);
-  }
-  const tex = new CanvasTexture(canvas);
-  tex.colorSpace = SRGBColorSpace;
-  return tex;
-}
 
 /**
  * A photo as a texture. If the CORS check fails, fetch again past the HTTP cache: an
@@ -227,7 +207,7 @@ export class SpaceScene {
     this.invalidate();
   }
 
-  fit(layout: Layout, photos: Photo[]) {
+  private fit(layout: Layout, photos: Photo[]) {
     const { width, height } = this.container.getBoundingClientRect();
     const view = fitView(layout, photos, FOV, width / Math.max(height, 1) || 1.5);
     this.controls.target.set(view.target.x, view.target.y, view.target.z);
@@ -272,36 +252,31 @@ export class SpaceScene {
   // --- cards ---
 
   private add(photo: Photo): Card {
-    const img = cardSize(photo);
-    const { w, h } = frameSize(photo);
+    const { w, h } = cardSize(photo);
     const group = new Group();
     group.rotation.order = "YXZ";
     group.userData.id = photo.id;
 
-    const frame = new Mesh(
-      new BoxGeometry(w, h, 6),
-      new MeshLambertMaterial({ color: FRAME, emissive: SEL, emissiveIntensity: 0 }),
-    );
-    frame.userData.id = photo.id;
-    group.add(frame);
+    // back and edges of the print; also what pointer picks hit
+    const body = new Mesh(new BoxGeometry(w, h, THICK), new MeshLambertMaterial({ color: PAPER }));
+    body.userData.id = photo.id;
+    group.add(body);
 
-    const image = new Mesh(
-      new PlaneGeometry(img.w, img.h),
-      new MeshBasicMaterial({ color: "#d8d2c4" }),
-    );
-    image.position.set(0, h / 2 - FRAME_SIDE - img.h / 2, 3.2);
+    const image = new Mesh(new PlaneGeometry(w, h), new MeshBasicMaterial({ color: "#d8d2c4" }));
+    image.position.z = THICK / 2 + 0.2;
     group.add(image);
     loadPhoto(photo.display_url).then(
       (tex) => this.setTexture(photo.id, tex),
       (err) => console.warn(`3D canvas: couldn't load photo ${photo.id}`, err),
     );
 
-    const caption = new Mesh(
-      new PlaneGeometry(w, FRAME_CAPTION),
-      new MeshBasicMaterial({ map: captionTexture(displayName(photo.uploader_name), w) }),
+    // selection ring: sticks out past the edges, hidden unless selected
+    const outline = new Mesh(
+      new PlaneGeometry(w + 2 * OUTLINE, h + 2 * OUTLINE),
+      new MeshBasicMaterial({ color: SEL, side: DoubleSide }),
     );
-    caption.position.set(0, -h / 2 + FRAME_CAPTION / 2, 3.1);
-    group.add(caption);
+    outline.visible = false;
+    group.add(outline);
 
     const shadow = new Mesh(
       new CircleGeometry(w * 0.6, 32),
@@ -314,9 +289,9 @@ export class SpaceScene {
     const card: Card = {
       photo,
       group,
-      frame,
+      body,
       image,
-      caption,
+      outline,
       shadow,
       placement: { x: 0, y: 0, z: 0, yaw: 0, r: 0, s: 1 },
     };
@@ -339,7 +314,7 @@ export class SpaceScene {
 
   private drop(id: string, card: Card) {
     this.scene.remove(card.group, card.shadow);
-    for (const mesh of [card.frame, card.image, card.caption]) {
+    for (const mesh of [card.body, card.image, card.outline]) {
       mesh.geometry.dispose();
       if (mesh.material.map) freeTexture(mesh.material.map);
       mesh.material.dispose();
@@ -364,12 +339,12 @@ export class SpaceScene {
   private select(id: string | null) {
     if (this.selected === id) return;
     const prev = this.selected && this.cards.get(this.selected);
-    if (prev) prev.frame.material.emissiveIntensity = 0;
+    if (prev) prev.outline.visible = false;
     this.selected = id && this.cards.has(id) ? id : null;
     const card = this.selected && this.cards.get(this.selected);
     this.stalk.visible = Boolean(card);
     if (card) {
-      card.frame.material.emissiveIntensity = 0.45;
+      card.outline.visible = true;
       this.moveStalk(card);
     }
     this.invalidate();
@@ -394,8 +369,8 @@ export class SpaceScene {
 
   private pick(e: PointerEvent | MouseEvent): { id: string; point: Vec3 } | null {
     this.ray(e);
-    const frames = [...this.cards.values()].map((c) => c.frame);
-    const hit = this.raycaster.intersectObjects(frames, false)[0];
+    const bodies = [...this.cards.values()].map((c) => c.body);
+    const hit = this.raycaster.intersectObjects(bodies, false)[0];
     return hit ? { id: hit.object.userData.id as string, point: hit.point } : null;
   }
 

@@ -7,9 +7,6 @@ export const MIN_SCALE = 0.25;
 export const MAX_SCALE = 4;
 // longest side of a photo at scale 1, in world units
 export const CARD_PX = 360;
-// polaroid border around the photo
-export const FRAME_SIDE = 14;
-export const FRAME_CAPTION = 56;
 
 export interface Vec3 {
   x: number;
@@ -37,12 +34,6 @@ export function cardSize(photo: Pick<Photo, "width" | "height">): { w: number; h
   return ratio >= 1
     ? { w: CARD_PX, h: Math.round(CARD_PX / ratio) }
     : { w: Math.round(CARD_PX * ratio), h: CARD_PX };
-}
-
-/** Whole polaroid (photo plus border) at scale 1. */
-export function frameSize(photo: Pick<Photo, "width" | "height">): { w: number; h: number } {
-  const { w, h } = cardSize(photo);
-  return { w: w + 2 * FRAME_SIDE, h: h + FRAME_SIDE + FRAME_CAPTION };
 }
 
 export function clampPlacement(p: Placement): Placement {
@@ -90,10 +81,6 @@ export function resolveLayout(photos: Pick<Photo, "id">[], saved: Layout): Layou
     out[p.id] = defaultPlacement(p.id, i, fresh.length, depth);
   });
   return out;
-}
-
-export function scatter(photos: Pick<Photo, "id">[]): Layout {
-  return Object.fromEntries(photos.map((p, i) => [p.id, defaultPlacement(p.id, i, photos.length)]));
 }
 
 /** Yaw that turns a photo at `from` to face `to` (its front looks down +z at yaw 0). */
@@ -166,7 +153,7 @@ export function fitView(
   const hi = { x: -Infinity, y: -Infinity, z: -Infinity };
   for (const photo of placed) {
     const p = layout[photo.id];
-    const { w, h } = frameSize(photo);
+    const { w, h } = cardSize(photo);
     const half = (Math.max(w, h) * p.s) / 2;
     for (const k of ["x", "y", "z"] as const) {
       lo[k] = Math.min(lo[k], p[k] - half);

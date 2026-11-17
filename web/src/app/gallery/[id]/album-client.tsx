@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { PixelIcon } from "@/components/pixel-icon";
 import { Button, Dialog, StatusBar, ToolButton, ToolSeparator } from "@/components/xp";
 import {
   type Album,
@@ -15,7 +16,7 @@ import {
   type Photo,
   saveLayout,
 } from "@/lib/api";
-import { resolveLayout, scatter } from "@/lib/space";
+import { resolveLayout } from "@/lib/space";
 import { type UploadDeps, uploadAll } from "@/lib/upload";
 
 import { errorMessage } from "../gallery-client";
@@ -148,6 +149,11 @@ export function AlbumView({ albumId, getToken, onDeleted, uploadDeps }: AlbumVie
   return (
     <>
       <div className="xp-toolbar">
+        <Link href="/gallery" className="xp-tool">
+          <PixelIcon name="back" size={28} />
+          <span>Back</span>
+        </Link>
+        <ToolSeparator />
         <ToolButton
           icon="picture"
           label={upload ? "Uploading..." : "Upload"}
@@ -180,12 +186,6 @@ export function AlbumView({ albumId, getToken, onDeleted, uploadDeps }: AlbumVie
         {view === "canvas" && (
           <>
             <ToolSeparator />
-            <ToolButton
-              icon="refresh"
-              label="Scatter"
-              disabled={!photos.length}
-              onClick={() => changeLayout(scatter(photos))}
-            />
             <ToolButton
               icon="check"
               label={saving ? "Saving..." : "Save"}
