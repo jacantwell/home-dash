@@ -19,8 +19,7 @@ import {
   Raycaster,
   Scene,
   SRGBColorSpace,
-  type Texture,
-  TextureLoader,
+  Texture,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -95,6 +94,30 @@ function captionTexture(name: string, w: number): CanvasTexture {
   return tex;
 }
 
+/**
+ * A photo as a texture. If the CORS check fails, fetch again past the HTTP cache: an
+ * `immutable` copy cached without the CORS header would otherwise fail forever.
+ */
+export async function loadPhoto(url: string): Promise<Texture> {
+  const get = async (cache: RequestCache) => {
+    const res = await fetch(url, { mode: "cors", cache });
+    if (!res.ok) throw new Error(`${res.status} loading photo`);
+    return res.blob();
+  };
+  const blob = await get("default").catch(() => get("reload"));
+  const tex = new Texture(await createImageBitmap(blob, { imageOrientation: "flipY" }));
+  // the bitmap is already flipped
+  tex.flipY = false;
+  tex.colorSpace = SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function freeTexture(tex: Texture) {
+  if (tex.image instanceof ImageBitmap) tex.image.close();
+  tex.dispose();
+}
+
 function shadowTexture(): CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 64;
@@ -116,7 +139,6 @@ export class SpaceScene {
   private camera = new PerspectiveCamera(FOV, 1, 10, 30000);
   private controls: OrbitControls;
   private raycaster = new Raycaster();
-  private loader = new TextureLoader().setCrossOrigin("anonymous");
   private shadowTex = shadowTexture();
   private cards = new Map<string, Card>();
   private selected: string | null = null;
@@ -127,6 +149,7 @@ export class SpaceScene {
   private frame = 0;
   private resize: ResizeObserver;
   private fitted = false;
+  private disposed = false;
 
   constructor(
     private container: HTMLElement,
@@ -225,6 +248,7 @@ export class SpaceScene {
   }
 
   dispose() {
+    this.disposed = true;
     cancelAnimationFrame(this.frame);
     this.resize.disconnect();
     this.container.removeEventListener("pointerdown", this.onDown, true);
@@ -267,7 +291,10 @@ export class SpaceScene {
     );
     image.position.set(0, h / 2 - FRAME_SIDE - img.h / 2, 3.2);
     group.add(image);
-    this.loader.load(photo.display_url, (tex) => this.setTexture(photo.id, tex));
+    loadPhoto(photo.display_url).then(
+      (tex) => this.setTexture(photo.id, tex),
+      (err) => console.warn(`3D canvas: couldn't load photo ${photo.id}`, err),
+    );
 
     const caption = new Mesh(
       new PlaneGeometry(w, FRAME_CAPTION),
@@ -299,11 +326,10 @@ export class SpaceScene {
 
   private setTexture(id: string, tex: Texture) {
     const card = this.cards.get(id);
-    if (!card) {
-      tex.dispose();
+    if (!card || this.disposed) {
+      freeTexture(tex);
       return;
     }
-    tex.colorSpace = SRGBColorSpace;
     tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     card.image.material.map = tex;
     card.image.material.color.set("#ffffff");
@@ -315,7 +341,7 @@ export class SpaceScene {
     this.scene.remove(card.group, card.shadow);
     for (const mesh of [card.frame, card.image, card.caption]) {
       mesh.geometry.dispose();
-      mesh.material.map?.dispose();
+      if (mesh.material.map) freeTexture(mesh.material.map);
       mesh.material.dispose();
     }
     card.shadow.geometry.dispose();
