@@ -33,6 +33,12 @@ module "photos" {
   ]
 }
 
+# made by hand to test the CORS fix before this landed
+import {
+  to = module.photos.aws_cloudfront_response_headers_policy.cors
+  id = "619eac0a-1a81-4d78-a243-a42f8accc8f6"
+}
+
 output "backend_env" {
   description = "Non-secret env vars for the backend's Vercel scope"
   value = {
