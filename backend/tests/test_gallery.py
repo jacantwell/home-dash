@@ -7,11 +7,18 @@ from fastapi.testclient import TestClient
 from api.app import create_app
 from api.auth import ClerkVerifier
 from api.config import Settings
-from api.gallery import ALBUM_TITLE_MAX, BOARD_H, BOARD_W, DIMENSION_MAX, LAYOUT_MAX_ITEMS
+from api.gallery import (
+    ALBUM_TITLE_MAX,
+    DIMENSION_MAX,
+    LAYOUT_MAX_ITEMS,
+    SPACE_H,
+    SPACE_HALF,
+)
 from api.photos import (
     ORIGINAL_MAX_BYTES,
     RENDITION_MAX_BYTES,
     VARIANTS,
+    AlbumRow,
     PhotoRow,
     get_photo_repo,
     photo_key,
@@ -23,7 +30,9 @@ Headers = Callable[[str], dict[str, str]]
 
 CREATOR, UPLOADER, STRANGER = "user_creator", "user_uploader", "user_stranger"
 UPLOAD = {"content_type": "image/png", "bytes": 1234, "width": 4000, "height": 3000}
-PLACEMENT = {"x": 100, "y": 200, "r": 15, "s": 1.5, "z": 3}
+PLACEMENT = {"x": 100, "y": 200, "z": -300, "yaw": 30, "r": 15, "s": 1.5}
+# pre-3D shape: int stacking `z`, no `yaw`
+STALE_2D = {"x": 1, "y": 2, "r": 0, "s": 1, "z": 3}
 MISSING = uuid4()
 
 
@@ -340,8 +349,8 @@ def test_save_layout_drops_photos_not_in_album(
 @pytest.mark.parametrize(
     "placement",
     [
-        {"x": 0, "y": 0, "r": -180, "s": 0.25, "z": 0},
-        {"x": BOARD_W, "y": BOARD_H, "r": 180, "s": 4, "z": 1_000_000},
+        {"x": -SPACE_HALF, "y": 0, "z": -SPACE_HALF, "yaw": -180, "r": -180, "s": 0.25},
+        {"x": SPACE_HALF, "y": SPACE_H, "z": SPACE_HALF, "yaw": 180, "r": 180, "s": 4},
     ],
     ids=["min", "max"],
 )
@@ -356,28 +365,34 @@ def test_save_layout_accepts_bounds(
 
 
 @pytest.mark.parametrize(
-    "override",
+    "placement",
     [
-        pytest.param({"x": -1}, id="x-low"),
-        pytest.param({"x": BOARD_W + 1}, id="x-high"),
-        pytest.param({"y": -1}, id="y-low"),
-        pytest.param({"y": BOARD_H + 1}, id="y-high"),
-        pytest.param({"r": -181}, id="r-low"),
-        pytest.param({"r": 181}, id="r-high"),
-        pytest.param({"s": 0.24}, id="s-low"),
-        pytest.param({"s": 4.01}, id="s-high"),
-        pytest.param({"z": -1}, id="z-low"),
-        pytest.param({"z": 1_000_001}, id="z-high"),
-        pytest.param({"z": 1.5}, id="z-fraction"),
-        pytest.param({"x": None}, id="x-null"),
+        pytest.param({**PLACEMENT, "x": -SPACE_HALF - 1}, id="x-low"),
+        pytest.param({**PLACEMENT, "x": SPACE_HALF + 1}, id="x-high"),
+        pytest.param({**PLACEMENT, "y": -1}, id="y-low"),
+        pytest.param({**PLACEMENT, "y": SPACE_H + 1}, id="y-high"),
+        pytest.param({**PLACEMENT, "z": -SPACE_HALF - 1}, id="z-low"),
+        pytest.param({**PLACEMENT, "z": SPACE_HALF + 1}, id="z-high"),
+        pytest.param({**PLACEMENT, "yaw": -181}, id="yaw-low"),
+        pytest.param({**PLACEMENT, "yaw": 181}, id="yaw-high"),
+        pytest.param({**PLACEMENT, "r": -181}, id="r-low"),
+        pytest.param({**PLACEMENT, "r": 181}, id="r-high"),
+        pytest.param({**PLACEMENT, "s": 0.24}, id="s-low"),
+        pytest.param({**PLACEMENT, "s": 4.01}, id="s-high"),
+        *[pytest.param({**PLACEMENT, k: None}, id=f"{k}-null") for k in PLACEMENT],
+        *[
+            pytest.param({f: v for f, v in PLACEMENT.items() if f != k}, id=f"{k}-missing")
+            for k in PLACEMENT
+        ],
+        pytest.param(STALE_2D, id="stale-2d"),
     ],
 )
 def test_save_layout_rejects_out_of_bounds_placement(
-    client: TestClient, as_user: Headers, repo: InMemoryPhotoRepo, override: dict
+    client: TestClient, as_user: Headers, repo: InMemoryPhotoRepo, placement: dict
 ) -> None:
     album_id = _album(repo)
     photo = _photo(repo, album_id)
-    body = {"items": {str(photo.id): {**PLACEMENT, **override}}}
+    body = {"items": {str(photo.id): placement}}
     response = client.put(f"/api/albums/{album_id}/layout", json=body, headers=as_user())
     assert response.status_code == 422
     assert repo.albums[album_id].layout == {}
@@ -401,6 +416,30 @@ def test_save_layout_rejects_bad_body(
     album_id = _album(repo)
     response = client.put(f"/api/albums/{album_id}/layout", json=body, headers=as_user())
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "stale",
+    [
+        pytest.param(STALE_2D, id="2d-shape"),
+        pytest.param({k: v for k, v in PLACEMENT.items() if k != "yaw"}, id="no-yaw"),
+        pytest.param({**PLACEMENT, "z": "deep"}, id="non-numeric"),
+        pytest.param(None, id="null"),
+        pytest.param([1, 2, 3], id="not-object"),
+    ],
+)
+def test_get_album_skips_stale_layout_entries(
+    client: TestClient, as_user: Headers, repo: InMemoryPhotoRepo, stale: object
+) -> None:
+    album_id = _album(repo)
+    kept, old = _photo(repo, album_id), _photo(repo, album_id)
+    raw = {str(old.id): stale, str(kept.id): PLACEMENT}
+    # validate a raw dict like PostgresPhotoRepo does with the jsonb row
+    row = {**repo.albums[album_id].model_dump(), "layout": raw}
+    repo.albums[album_id] = AlbumRow.model_validate(row)
+    response = client.get(f"/api/albums/{album_id}", headers=as_user())
+    assert response.status_code == 200
+    assert response.json()["layout"] == {str(kept.id): PLACEMENT}, "stale entry is dropped"
 
 
 # --- upload -----------------------------------------------------------------------

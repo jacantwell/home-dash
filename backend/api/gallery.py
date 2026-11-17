@@ -27,9 +27,9 @@ from api.photos import (
 
 ALBUM_TITLE_MAX = 80
 LAYOUT_MAX_ITEMS = 2000
-# canvas coordinates, shared with web/src/lib/canvas.ts
-BOARD_W = 2400
-BOARD_H = 1600
+# canvas space bounds, shared with web/src/lib/space.ts: x/z in ±SPACE_HALF, y in 0..SPACE_H
+SPACE_HALF = 3000
+SPACE_H = 3000
 DIMENSION_MAX = 30_000
 
 OriginalType = Literal[
@@ -102,11 +102,12 @@ class UploadTicket(BaseModel):
 
 
 class PlacementIn(BaseModel):
-    x: float = Field(ge=0, le=BOARD_W)
-    y: float = Field(ge=0, le=BOARD_H)
+    x: float = Field(ge=-SPACE_HALF, le=SPACE_HALF)
+    y: float = Field(ge=0, le=SPACE_H)
+    z: float = Field(ge=-SPACE_HALF, le=SPACE_HALF)
+    yaw: float = Field(ge=-180, le=180)
     r: float = Field(ge=-180, le=180)
     s: float = Field(ge=0.25, le=4)
-    z: int = Field(ge=0, le=1_000_000)
 
 
 class LayoutIn(BaseModel):
