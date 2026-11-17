@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.20](https://github.com/jacantwell/home-dash/compare/v0.2.19...v0.2.20) (2026-11-17)
+
+
+### Features
+
+* **web:** make the gallery canvas a 3D space ([#97](https://github.com/jacantwell/home-dash/issues/97)) ([cc4cc96](https://github.com/jacantwell/home-dash/commit/cc4cc960a24a9ca29bcb0713184a80a998fea161))
+
 ## [0.2.19](https://github.com/jacantwell/home-dash/compare/v0.2.18...v0.2.19) (2026-11-16)
 
 
