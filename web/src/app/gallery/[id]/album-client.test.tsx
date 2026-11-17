@@ -1,12 +1,33 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Album, Photo } from "@/lib/api";
+import type { Album, Photo, Placement } from "@/lib/api";
 import type { PreparedImage } from "@/lib/images";
 
 import { AlbumView } from "./album-client";
-import { keyEdit } from "./canvas-board";
+import type { SceneEvents } from "./space-scene";
+
+// jsdom has no WebGL: stand in for the scene and drive it through its callbacks
+const scene = vi.hoisted(() => ({
+  events: null as SceneEvents | null,
+  sync: vi.fn(),
+  fit: vi.fn(),
+  eye: () => ({ x: 0, y: 300, z: 1000 }),
+  viewYaw: () => 0,
+}));
+vi.mock("./space-scene", () => ({
+  SpaceScene: class {
+    sync = scene.sync;
+    fit = scene.fit;
+    eye = scene.eye;
+    viewYaw = scene.viewYaw;
+    dispose = vi.fn();
+    constructor(_el: HTMLElement, events: SceneEvents) {
+      scene.events = events;
+    }
+  },
+}));
 
 const photo = (id: string, over: Partial<Photo> = {}): Photo => ({
   id,
@@ -186,28 +207,51 @@ describe("AlbumView album actions", () => {
   });
 });
 
+const placed = (over: Partial<Placement> = {}): Placement => ({
+  x: 500,
+  y: 400,
+  z: -200,
+  yaw: 0,
+  r: 0,
+  s: 1,
+  ...over,
+});
+
 describe("AlbumView canvas", () => {
   async function openCanvas(a = album()) {
     await renderAlbum(a);
     await userEvent.click(screen.getByRole("radio", { name: "Canvas" }));
+    await waitFor(() => expect(scene.sync).toHaveBeenCalled());
   }
 
-  it("puts every photo on the board, saved placements first", async () => {
-    await openCanvas(album({ layout: { p1: { x: 500, y: 400, r: 12, s: 1.5, z: 3 } } }));
+  beforeEach(() => {
+    scene.events = null;
+    scene.sync.mockReset();
+    scene.fit.mockReset();
+  });
+
+  it("puts every photo in the space, saved placements first", async () => {
+    await openCanvas(album({ layout: { p1: placed({ yaw: 30, r: 12, s: 1.5 }) } }));
     const card = screen.getByTestId("card-p1");
     expect(card).toHaveAttribute("data-x", "500");
-    expect(card).toHaveAttribute("data-r", "12");
-    expect(screen.getByTestId("card-p2")).toHaveAttribute("data-z", "4");
+    expect(card).toHaveAttribute("data-yaw", "30");
+    // new photos land in front of what's already placed
+    expect(Number(screen.getByTestId("card-p2").getAttribute("data-z"))).toBeGreaterThan(-200);
+    const [photos, layout] = scene.sync.mock.lastCall!;
+    expect(photos).toHaveLength(2);
+    expect(Object.keys(layout).sort()).toEqual(["p1", "p2"]);
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("moves a photo with the keyboard, then saves the layout", async () => {
-    await openCanvas(album({ layout: { p1: { x: 500, y: 400, r: 0, s: 1, z: 9 } } }));
+    await openCanvas(album({ layout: { p1: placed() } }));
     const card = screen.getByTestId("card-p1");
     card.focus();
     fireEvent.keyDown(card, { key: "ArrowRight" });
-    fireEvent.keyDown(card, { key: "]" });
-    expect(card).toHaveAttribute("data-x", "510");
+    fireEvent.keyDown(card, { key: "ArrowUp" });
+    fireEvent.keyDown(card, { key: "." });
+    expect(card).toHaveAttribute("data-x", "520");
+    expect(card).toHaveAttribute("data-z", "-220");
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
 
     fetchMock.mockImplementationOnce(async (_url, init) =>
@@ -219,50 +263,52 @@ describe("AlbumView canvas", () => {
     const [url, init] = calls("PUT")[0];
     expect(url).toBe("/api/albums/a1/layout");
     const items = JSON.parse(String(init?.body)).items;
-    expect(items.p1).toMatchObject({ x: 510, y: 400, r: 5, s: 1 });
+    expect(items.p1).toEqual(placed({ x: 520, z: -220, yaw: 5 }));
     expect(Object.keys(items).sort()).toEqual(["p1", "p2"]);
   });
 
-  it("drags a photo by the pointer", async () => {
-    await openCanvas(album({ layout: { p1: { x: 500, y: 400, r: 0, s: 1, z: 9 } } }));
+  it("follows a drag in the scene", async () => {
+    await openCanvas(album({ layout: { p1: placed() } }));
+    act(() => {
+      scene.events!.onSelect("p1");
+      scene.events!.onMove("p1", placed({ x: 0, y: 900, z: -1500 }));
+    });
     const card = screen.getByTestId("card-p1");
-    fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 10, pointerId: 1 });
-    // under the tap slop: nothing moves
-    fireEvent.pointerMove(card, { clientX: 12, clientY: 10, pointerId: 1 });
-    expect(card).toHaveAttribute("data-x", "500");
-    // default zoom 0.35: 35px on screen is 100 board units
-    fireEvent.pointerMove(card, { clientX: 45, clientY: 10, pointerId: 1 });
-    fireEvent.pointerUp(card, { pointerId: 1 });
-    expect(Number(card.getAttribute("data-x"))).toBeCloseTo(600);
+    expect(card).toHaveAttribute("data-z", "-1500");
     expect(card).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
   });
 
-  it("opens the viewer from the board with Enter", async () => {
+  it.each([
+    ["Turn right", { yaw: 15 }],
+    ["Turn left", { yaw: -15 }],
+    ["Bigger", { s: 1.15 }],
+    // camera at (0, 300, 1000), photo at (500, 400, -200)
+    ["Face me", { yaw: -22.6 }],
+  ])("%s edits the selected photo", async (label, expected) => {
+    await openCanvas(album({ layout: { p1: placed() } }));
+    act(() => scene.events!.onSelect("p1"));
+    await userEvent.click(screen.getByRole("button", { name: label }));
+    const card = screen.getByTestId("card-p1");
+    for (const [k, v] of Object.entries(expected)) {
+      expect(Number(card.getAttribute(`data-${k}`))).toBeCloseTo(v);
+    }
+  });
+
+  it.each([
+    ["Enter on a photo", () => fireEvent.keyDown(screen.getByTestId("card-p2"), { key: "Enter" })],
+    ["a double-click in the scene", () => act(() => scene.events!.onOpen("p2"))],
+  ])("opens the viewer with %s", async (_, open) => {
     await openCanvas();
-    fireEvent.keyDown(screen.getByTestId("card-p2"), { key: "Enter" });
+    open();
     expect(screen.getByRole("dialog", { name: "Picture viewer" })).toHaveTextContent(
       "Photo 2 of 2",
     );
   });
-});
 
-describe("keyEdit", () => {
-  const p = { x: 100, y: 100, r: 0, s: 1, z: 0 };
-  it.each([
-    ["ArrowLeft", false, { x: 90 }],
-    ["ArrowRight", true, { x: 150 }],
-    ["ArrowUp", false, { y: 90 }],
-    ["ArrowDown", true, { y: 150 }],
-    ["[", false, { r: -5 }],
-    ["]", true, { r: 15 }],
-    ["+", false, { s: 1.05 }],
-    ["=", true, { s: 1.25 }],
-    ["-", true, { s: 0.8 }],
-  ])("%s (shift=%s)", (key, big, expected) => {
-    expect(keyEdit(p, key, big)).toMatchObject(expected);
-  });
-
-  it("ignores other keys", () => {
-    expect(keyEdit(p, "a", false)).toBeNull();
+  it("fits the view on demand", async () => {
+    await openCanvas();
+    await userEvent.click(screen.getByRole("button", { name: "Fit view" }));
+    expect(scene.fit).toHaveBeenCalledOnce();
   });
 });

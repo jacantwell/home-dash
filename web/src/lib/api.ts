@@ -347,14 +347,15 @@ export interface Photo {
   created_at: string;
 }
 
-// Canvas position of one photo: centre (x, y) in board units, rotation in degrees,
-// scale, stacking order. See lib/canvas.ts.
+// Where one photo sits in the 3D canvas: centre (x, y up, z) in world units, turn round
+// the vertical (yaw) and tilt in its own plane (r) in degrees, scale. See lib/space.ts.
 export interface Placement {
   x: number;
   y: number;
+  z: number;
+  yaw: number;
   r: number;
   s: number;
-  z: number;
 }
 
 export type Layout = Record<string, Placement>;

@@ -15,7 +15,7 @@ import {
   type Photo,
   saveLayout,
 } from "@/lib/api";
-import { resolveLayout, scatter } from "@/lib/canvas";
+import { resolveLayout, scatter } from "@/lib/space";
 import { type UploadDeps, uploadAll } from "@/lib/upload";
 
 import { errorMessage } from "../gallery-client";

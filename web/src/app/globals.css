@@ -1188,81 +1188,54 @@ ol.pc-log {
 
 .canvas-wrap {
   position: relative;
+  height: clamp(360px, 70vh, 820px);
   overflow: hidden;
-}
-.canvas-board {
-  position: absolute;
-  top: 0;
-  left: 0;
-  isolation: isolate;
-  transform-origin: 0 0;
-  background:
-    radial-gradient(rgba(90, 55, 20, 0.18) 1.5px, transparent 2px) 0 0 / 14px 14px,
-    radial-gradient(rgba(255, 240, 210, 0.25) 1px, transparent 1.5px) 7px 7px / 14px 14px,
-    #c49a63;
-  box-shadow: inset 0 0 0 14px #8a5a2b;
-  touch-action: none;
-}
-.polaroid {
-  position: absolute;
-  padding: 14px 14px 0;
-  background: #fdfcf7;
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.25),
-    0 10px 24px rgba(0, 0, 0, 0.25);
-  cursor: grab;
+  background: #a9c8e8;
   touch-action: none;
   user-select: none;
 }
-.polaroid:active {
-  cursor: grabbing;
+.canvas-wrap:has(.sr-only :focus-visible) {
+  outline: 2px solid var(--xp-sel);
+  outline-offset: -2px;
 }
-.polaroid.selected,
-.polaroid:focus-visible {
-  outline: 6px solid var(--xp-sel);
-  outline-offset: 4px;
-}
-.polaroid img {
+.space-canvas {
   display: block;
-  max-width: none;
+  width: 100%;
+  height: 100%;
+}
+.space-tools,
+.space-fit {
+  position: absolute;
+  top: 8px;
+}
+.space-tools {
+  left: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: calc(100% - 110px);
+}
+.space-fit {
+  right: 8px;
+}
+.space-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
-.polaroid-caption {
-  display: block;
-  height: 56px;
-  overflow: hidden;
-  font:
-    26px/56px "Comic Sans MS",
-    "Chalkboard SE",
-    cursive;
-  color: #333;
-  text-align: center;
-  white-space: nowrap;
-}
-.polaroid-handle,
-.polaroid-open {
+.space-fallback {
   position: absolute;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: var(--xp-sel);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  transform: translate(50%, 50%);
-}
-.polaroid-handle {
-  right: 0;
-  bottom: 0;
-  cursor: nwse-resize;
-}
-.polaroid-open {
-  top: 0;
-  right: 0;
+  inset: 0;
   display: grid;
   place-items: center;
-  padding: 0;
-  color: #fff;
-  line-height: 1;
-  transform: translate(50%, -50%);
-  cursor: pointer;
+  padding: 24px;
+  text-align: center;
 }
 
 .lightbox-overlay {
