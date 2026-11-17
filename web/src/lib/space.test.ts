@@ -8,7 +8,6 @@ import {
   defaultPlacement,
   faceYaw,
   fitView,
-  frameSize,
   hash01,
   keyEdit,
   MAX_SCALE,
@@ -45,14 +44,13 @@ describe("hash01", () => {
   );
 });
 
-describe("cardSize / frameSize", () => {
+describe("cardSize", () => {
   it.each([
     [4000, 3000, CARD_PX, 270],
     [3000, 4000, 270, CARD_PX],
     [1000, 1000, CARD_PX, CARD_PX],
   ])("%ix%i -> photo %ix%i", (width, height, w, h) => {
     expect(cardSize({ width, height })).toEqual({ w, h });
-    expect(frameSize({ width, height })).toEqual({ w: w + 28, h: h + 70 });
   });
 });
 
