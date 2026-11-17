@@ -157,6 +157,12 @@ describe("AlbumView grid + lightbox", () => {
 });
 
 describe("AlbumView album actions", () => {
+  it.each(["grid", "canvas"])("links back to the album list from the %s view", async (view) => {
+    await renderAlbum();
+    if (view === "canvas") await userEvent.click(screen.getByRole("radio", { name: "Canvas" }));
+    expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/gallery");
+  });
+
   it.each([
     [true, true],
     [false, false],
