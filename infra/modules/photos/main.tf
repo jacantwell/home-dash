@@ -13,9 +13,6 @@ locals {
   name = "home-dash-photos-${var.env}"
   # AWS managed "CachingOptimized": query strings (the URL signature) stay out of the cache key
   caching_optimized = "658327ea-f89d-4fab-a63d-7e88639e58f6"
-  # AWS managed "SimpleCORS": Access-Control-Allow-Origin: * so WebGL can use the images;
-  # the signed URL is still what gates access
-  simple_cors = "60669652-455b-4ae9-85a4-c4c02393f86c"
 }
 
 # --- bucket: private, only CloudFront reads, only the backend's presigned POSTs write ---
@@ -76,6 +73,28 @@ resource "aws_s3_bucket_policy" "photos" {
 
 # --- CDN: every request needs a URL signed by the backend ---
 
+# ACAO: * on every response so WebGL can use the images; the signed URL still gates access.
+# origin_override, because S3's Vary: Origin made the managed SimpleCORS header come and go.
+resource "aws_cloudfront_response_headers_policy" "cors" {
+  name = "${local.name}-cors"
+
+  cors_config {
+    access_control_allow_credentials = false
+    access_control_max_age_sec       = 86400
+    origin_override                  = true
+
+    access_control_allow_origins {
+      items = ["*"]
+    }
+    access_control_allow_headers {
+      items = ["*"]
+    }
+    access_control_allow_methods {
+      items = ["GET", "HEAD"]
+    }
+  }
+}
+
 resource "aws_cloudfront_origin_access_control" "photos" {
   name                              = local.name
   origin_access_control_origin_type = "s3"
@@ -117,7 +136,7 @@ resource "aws_cloudfront_distribution" "photos" {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     cache_policy_id            = local.caching_optimized
-    response_headers_policy_id = local.simple_cors
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.cors.id
     compress                   = true
     trusted_key_groups         = [aws_cloudfront_key_group.signer.id]
   }
