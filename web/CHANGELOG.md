@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.22](https://github.com/jacantwell/home-dash/compare/v0.2.21...v0.2.22) (2026-11-17)
+
+
+### Features
+
+* **web:** gallery cleanup: borderless canvas photos, no Scatter/Fit view, Back link to albums ([4b55dbc](https://github.com/jacantwell/home-dash/commit/4b55dbc3d83f1813c6aec7af82deabde7be573df))
+
 ## [0.2.21](https://github.com/jacantwell/home-dash/compare/v0.2.20...v0.2.21) (2026-11-17)
 
 
