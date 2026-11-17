@@ -8,14 +8,12 @@ import {
   defaultPlacement,
   faceYaw,
   fitView,
-  frameSize,
   hash01,
   keyEdit,
   MAX_SCALE,
   MIN_SCALE,
   planeHit,
   resolveLayout,
-  scatter,
   SPACE_H,
   SPACE_HALF,
 } from "./space";
@@ -45,14 +43,13 @@ describe("hash01", () => {
   );
 });
 
-describe("cardSize / frameSize", () => {
+describe("cardSize", () => {
   it.each([
     [4000, 3000, CARD_PX, 270],
     [3000, 4000, 270, CARD_PX],
     [1000, 1000, CARD_PX, CARD_PX],
   ])("%ix%i -> photo %ix%i", (width, height, w, h) => {
     expect(cardSize({ width, height })).toEqual({ w, h });
-    expect(frameSize({ width, height })).toEqual({ w: w + 28, h: h + 70 });
   });
 });
 
@@ -100,10 +97,6 @@ describe("resolveLayout", () => {
 
   it("drops placements for photos that are gone", () => {
     expect(Object.keys(resolveLayout(photos(1), { gone: at() }))).toEqual(["p0"]);
-  });
-
-  it("scatter places everything", () => {
-    expect(Object.keys(scatter(photos(4))).sort()).toEqual(["p0", "p1", "p2", "p3"]);
   });
 });
 
@@ -173,7 +166,7 @@ describe("fitView", () => {
 
   it.each([1, 9, 60])("backs off far enough to see %i photos", (n) => {
     const ps = photos(n);
-    const layout = scatter(ps);
+    const layout = resolveLayout(ps, {});
     const v = fitView(layout, ps, 50, 1.5);
     const xs = Object.values(layout).map((p) => Math.abs(p.x - v.target.x) + CARD_PX / 2);
     const dist = v.position.z - v.target.z;

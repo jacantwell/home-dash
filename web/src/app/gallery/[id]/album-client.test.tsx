@@ -12,14 +12,12 @@ import type { SceneEvents } from "./space-scene";
 const scene = vi.hoisted(() => ({
   events: null as SceneEvents | null,
   sync: vi.fn(),
-  fit: vi.fn(),
   eye: () => ({ x: 0, y: 300, z: 1000 }),
   viewYaw: () => 0,
 }));
 vi.mock("./space-scene", () => ({
   SpaceScene: class {
     sync = scene.sync;
-    fit = scene.fit;
     eye = scene.eye;
     viewYaw = scene.viewYaw;
     dispose = vi.fn();
@@ -159,6 +157,12 @@ describe("AlbumView grid + lightbox", () => {
 });
 
 describe("AlbumView album actions", () => {
+  it.each(["grid", "canvas"])("links back to the album list from the %s view", async (view) => {
+    await renderAlbum();
+    if (view === "canvas") await userEvent.click(screen.getByRole("radio", { name: "Canvas" }));
+    expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/gallery");
+  });
+
   it.each([
     [true, true],
     [false, false],
@@ -227,7 +231,6 @@ describe("AlbumView canvas", () => {
   beforeEach(() => {
     scene.events = null;
     scene.sync.mockReset();
-    scene.fit.mockReset();
   });
 
   it("puts every photo in the space, saved placements first", async () => {
@@ -304,11 +307,5 @@ describe("AlbumView canvas", () => {
     expect(screen.getByRole("dialog", { name: "Picture viewer" })).toHaveTextContent(
       "Photo 2 of 2",
     );
-  });
-
-  it("fits the view on demand", async () => {
-    await openCanvas();
-    await userEvent.click(screen.getByRole("button", { name: "Fit view" }));
-    expect(scene.fit).toHaveBeenCalledOnce();
   });
 });
