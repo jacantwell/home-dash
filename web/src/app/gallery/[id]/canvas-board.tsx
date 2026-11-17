@@ -133,11 +133,6 @@ export function CanvasBoard({ photos, layout, onChange, onOpen }: CanvasBoardPro
         </div>
       )}
 
-      {scene && (
-        <Button className="space-fit" onClick={() => scene.fit(layout, photos)}>
-          Fit view
-        </Button>
-      )}
       <p className="space-hint">{HINT}</p>
 
       {/* the canvas is one <canvas>; these give keyboards and screen readers a way in */}

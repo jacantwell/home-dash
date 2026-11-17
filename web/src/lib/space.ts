@@ -83,10 +83,6 @@ export function resolveLayout(photos: Pick<Photo, "id">[], saved: Layout): Layou
   return out;
 }
 
-export function scatter(photos: Pick<Photo, "id">[]): Layout {
-  return Object.fromEntries(photos.map((p, i) => [p.id, defaultPlacement(p.id, i, photos.length)]));
-}
-
 /** Yaw that turns a photo at `from` to face `to` (its front looks down +z at yaw 0). */
 export function faceYaw(from: Vec3, to: Vec3): number {
   return round(Math.atan2(to.x - from.x, to.z - from.z) / DEG, 1);

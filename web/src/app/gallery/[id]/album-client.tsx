@@ -15,7 +15,7 @@ import {
   type Photo,
   saveLayout,
 } from "@/lib/api";
-import { resolveLayout, scatter } from "@/lib/space";
+import { resolveLayout } from "@/lib/space";
 import { type UploadDeps, uploadAll } from "@/lib/upload";
 
 import { errorMessage } from "../gallery-client";
@@ -180,12 +180,6 @@ export function AlbumView({ albumId, getToken, onDeleted, uploadDeps }: AlbumVie
         {view === "canvas" && (
           <>
             <ToolSeparator />
-            <ToolButton
-              icon="refresh"
-              label="Scatter"
-              disabled={!photos.length}
-              onClick={() => changeLayout(scatter(photos))}
-            />
             <ToolButton
               icon="check"
               label={saving ? "Saving..." : "Save"}

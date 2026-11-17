@@ -207,7 +207,7 @@ export class SpaceScene {
     this.invalidate();
   }
 
-  fit(layout: Layout, photos: Photo[]) {
+  private fit(layout: Layout, photos: Photo[]) {
     const { width, height } = this.container.getBoundingClientRect();
     const view = fitView(layout, photos, FOV, width / Math.max(height, 1) || 1.5);
     this.controls.target.set(view.target.x, view.target.y, view.target.z);

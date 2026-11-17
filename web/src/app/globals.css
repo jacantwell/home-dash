@@ -1203,20 +1203,14 @@ ol.pc-log {
   width: 100%;
   height: 100%;
 }
-.space-tools,
-.space-fit {
+.space-tools {
   position: absolute;
   top: 8px;
-}
-.space-tools {
   left: 8px;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  max-width: calc(100% - 110px);
-}
-.space-fit {
-  right: 8px;
+  max-width: calc(100% - 16px);
 }
 .space-hint {
   position: absolute;

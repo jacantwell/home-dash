@@ -14,7 +14,6 @@ import {
   MIN_SCALE,
   planeHit,
   resolveLayout,
-  scatter,
   SPACE_H,
   SPACE_HALF,
 } from "./space";
@@ -99,10 +98,6 @@ describe("resolveLayout", () => {
   it("drops placements for photos that are gone", () => {
     expect(Object.keys(resolveLayout(photos(1), { gone: at() }))).toEqual(["p0"]);
   });
-
-  it("scatter places everything", () => {
-    expect(Object.keys(scatter(photos(4))).sort()).toEqual(["p0", "p1", "p2", "p3"]);
-  });
 });
 
 describe("faceYaw", () => {
@@ -171,7 +166,7 @@ describe("fitView", () => {
 
   it.each([1, 9, 60])("backs off far enough to see %i photos", (n) => {
     const ps = photos(n);
-    const layout = scatter(ps);
+    const layout = resolveLayout(ps, {});
     const v = fitView(layout, ps, 50, 1.5);
     const xs = Object.values(layout).map((p) => Math.abs(p.x - v.target.x) + CARD_PX / 2);
     const dist = v.position.z - v.target.z;
