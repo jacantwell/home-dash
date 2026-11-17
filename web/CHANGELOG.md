@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.21](https://github.com/jacantwell/home-dash/compare/v0.2.20...v0.2.21) (2026-11-17)
+
+
+### Bug Fixes
+
+* **web:** load 3D canvas photos past stale cached copies ([#99](https://github.com/jacantwell/home-dash/issues/99)) ([75788b5](https://github.com/jacantwell/home-dash/commit/75788b5d7ef006cb578ccdbdae23540c0cd7ea22))
+
 ## [0.2.20](https://github.com/jacantwell/home-dash/compare/v0.2.19...v0.2.20) (2026-11-17)
 
 
