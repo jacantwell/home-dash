@@ -17,7 +17,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <html lang="en" className="h-full">
         <body className="flex min-h-full flex-col">
           <header className="raw sitebar mx-auto w-full max-w-4xl px-4 pt-3">
-            <nav className="flex items-center gap-2">
+            <nav className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <b>home-dash</b>
               <span aria-hidden>|</span>
               <Link href="/">index</Link>
