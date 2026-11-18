@@ -35,12 +35,14 @@ import {
   fitView,
   heading,
   planeHit,
+  pullIn,
   SPACE_H,
   SPACE_HALF,
   type Step,
   tapStep,
   turnAbout,
   type Vec3,
+  WALK_HALF,
   walkIntent,
 } from "@/lib/space";
 
@@ -86,6 +88,8 @@ const WALK_SPEED = 800;
 const TURN_SPEED = 90;
 const FAST = 2.5;
 const GLIDE_SPEED = 2000;
+// once you walk, the view orbits round a point this far ahead instead of the photos' middle
+const LOOK_AHEAD = 250;
 const WALK_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
@@ -517,6 +521,7 @@ export class SpaceScene {
     const spot = planeHit(ray.origin, ray.direction, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
     const step = spot && tapStep(spot, this.camera.position, this.controls.target);
     if (!step) return;
+    this.pivotHere();
     const dist = Math.hypot(step.x, step.z);
     this.glide = {
       from: this.camera.position.clone(),
@@ -525,6 +530,11 @@ export class SpaceScene {
       start: performance.now(),
       ms: Math.min(1200, Math.max(350, (dist / GLIDE_SPEED) * 1000)),
     };
+  }
+
+  private pivotHere() {
+    const t = pullIn(this.camera.position, this.controls.target, LOOK_AHEAD);
+    this.controls.target.set(t.x, t.y, t.z);
   }
 
   private moveBy(step: Step) {
@@ -543,6 +553,7 @@ export class SpaceScene {
     const { forward, turn, fast } = walkIntent(this.held);
     if (forward || turn) {
       this.glide = null;
+      this.pivotHere();
       const k = fast ? FAST : 1;
       if (turn) {
         const t = turnAbout(eye, target, turn * TURN_SPEED * k * dt);
@@ -573,9 +584,9 @@ export class SpaceScene {
     const t = this.controls.target;
     const clampTo = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
     t.set(
-      clampTo(t.x, -SPACE_HALF, SPACE_HALF),
+      clampTo(t.x, -WALK_HALF, WALK_HALF),
       clampTo(t.y, 0, SPACE_H),
-      clampTo(t.z, -SPACE_HALF, SPACE_HALF),
+      clampTo(t.z, -WALK_HALF, WALK_HALF),
     );
   }
 
