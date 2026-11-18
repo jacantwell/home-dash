@@ -1,7 +1,7 @@
 import type { Layout, Photo, Placement } from "./api";
 
 // World bounds, y up; the backend validates against the same numbers (api/gallery.py).
-export const SPACE_HALF = 3000;
+export const SPACE_HALF = 4500;
 export const SPACE_H = 3000;
 export const MIN_SCALE = 0.25;
 export const MAX_SCALE = 4;
@@ -133,8 +133,18 @@ export function planeHit(origin: Vec3, dir: Vec3, point: Vec3, normal: Vec3): Ve
   return { x: origin.x + dir.x * k, y: origin.y + dir.y * k, z: origin.z + dir.z * k };
 }
 
-// how far the camera can walk: a bit past the floor, so you can step back and take it all in
-export const WALK_HALF = SPACE_HALF * 1.5;
+// the room round the canvas, plus the hallway you come in by (through a door in the +z wall)
+export const ROOM_HALF = SPACE_HALF + 500;
+export const ROOM_H = SPACE_H + 600;
+export const DOOR_HALF = 450;
+export const DOOR_H = 1000;
+export const HALL_HALF = 600;
+export const HALL_H = 1200;
+export const HALL_END = ROOM_HALF + 2000;
+// how close to a wall you can stand
+export const WALL_GAP = 150;
+export const WALK_HALF = ROOM_HALF - WALL_GAP;
+const HALL_WALK = DOOR_HALF - WALL_GAP;
 
 /** A move across the floor. */
 export interface Step {
@@ -174,13 +184,20 @@ export function ahead(yaw: number): Step {
 }
 
 /**
- * `step` cut short (per axis, so you slide along the edge) to keep `at` within WALK_HALF.
- * If you're already outside, you can only come back in.
+ * `step` cut short (per axis, so you slide along walls) to keep `at` in the room or the
+ * hallway. If you're already outside, you can only come back in.
  */
 export function clampStep(step: Step, at: Step): Step {
-  const axis = (k: "x" | "z") =>
-    clamp(step[k], Math.min(0, -WALK_HALF - at[k]), Math.max(0, WALK_HALF - at[k]));
-  return { x: axis("x"), z: axis("z") };
+  const axis = (v: number, a: number, lo: number, hi: number) =>
+    clamp(v, Math.min(0, lo - a), Math.max(0, hi - a));
+  const z = axis(
+    step.z,
+    at.z,
+    -WALK_HALF,
+    Math.abs(at.x) <= HALL_WALK ? HALL_END - WALL_GAP : WALK_HALF,
+  );
+  const xHalf = at.z + z > WALK_HALF ? HALL_WALK : WALK_HALF;
+  return { x: axis(step.x, at.x, -xHalf, xHalf), z };
 }
 
 /** Turn your head: `dx` degrees left, `dy` degrees up, never past looking straight up/down. */
@@ -194,7 +211,9 @@ export function lookBy(s: Stance, dx: number, dy: number): Stance {
 
 /** Tapping the floor at `spot` walks you there from `at`; null if it's off the floor. */
 export function tapStep(spot: Vec3, at: Step): Step | null {
-  if (Math.abs(spot.x) > SPACE_HALF || Math.abs(spot.z) > SPACE_HALF) return null;
+  const inRoom = Math.abs(spot.x) <= ROOM_HALF && Math.abs(spot.z) <= ROOM_HALF;
+  const inHall = Math.abs(spot.x) <= HALL_HALF && spot.z >= ROOM_HALF && spot.z <= HALL_END;
+  if (!inRoom && !inHall) return null;
   return clampStep({ x: spot.x - at.x, z: spot.z - at.z }, at);
 }
 
@@ -245,4 +264,43 @@ export function stance(view: View): Stance {
     yaw: Math.atan2(-dx, -dz) / DEG,
     pitch: clamp(pitch, -MAX_PITCH, MAX_PITCH),
   };
+}
+
+// where you start (the far end of the hallway) and the spot just through the door
+export const HALL_START: Stance = { x: 0, z: HALL_END - WALL_GAP, yaw: 0, pitch: 0 };
+const THRESHOLD: Stance = { x: 0, z: ROOM_HALF - 500, yaw: 0, pitch: 0 };
+
+/** `s` pulled into the room if it's past the walls (fitView can back off that far). */
+export function keepInside(s: Stance): Stance {
+  return { ...s, x: clamp(s.x, -WALK_HALF, WALK_HALF), z: clamp(s.z, -WALK_HALF, WALK_HALF) };
+}
+
+/** Walk in from the hallway, through the door, to `to` (in the room, past the doorway). */
+export function entrance(to: Stance): Stance[] {
+  const end = keepInside(to);
+  return [HALL_START, THRESHOLD, { ...end, z: Math.min(end.z, THRESHOLD.z) }];
+}
+
+/** Where you are `t` (0..1) of the way along `path`, by distance walked, turning as each leg goes. */
+export function alongPath(path: Stance[], t: number): Stance {
+  const legs = path.slice(1).map((b, i) => Math.hypot(b.x - path[i].x, b.z - path[i].z));
+  const total = legs.reduce((a, b) => a + b, 0);
+  let d = clamp(t, 0, 1) * total;
+  for (let i = 0; i < legs.length; i++) {
+    if (d > legs[i] && i < legs.length - 1) {
+      d -= legs[i];
+      continue;
+    }
+    const k = legs[i] ? Math.min(1, d / legs[i]) : clamp(t, 0, 1);
+    const a = path[i];
+    const b = path[i + 1];
+    const lerp = (p: number, q: number) => p + (q - p) * k;
+    return {
+      x: lerp(a.x, b.x),
+      z: lerp(a.z, b.z),
+      yaw: wrapDeg(a.yaw + wrapDeg(b.yaw - a.yaw) * k),
+      pitch: lerp(a.pitch, b.pitch),
+    };
+  }
+  return path[0];
 }

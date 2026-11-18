@@ -17,14 +17,23 @@ import {
   SPACE_H,
   SPACE_HALF,
   ahead,
+  alongPath,
   clampStep,
+  DOOR_HALF,
+  entrance,
   EYE_H,
+  HALL_END,
+  HALL_HALF,
+  HALL_START,
+  keepInside,
   lookBy,
   MAX_PITCH,
+  ROOM_HALF,
   stance,
   tapStep,
   walkIntent,
   WALK_HALF,
+  WALL_GAP,
 } from "./space";
 
 const at = (over: Partial<Placement> = {}): Placement => ({
@@ -214,13 +223,28 @@ describe("ahead", () => {
 });
 
 describe("clampStep", () => {
+  const HALL_WALK = DOOR_HALF - WALL_GAP;
   it.each([
     ["inside: untouched", { x: 100, z: -200 }, { x: 0, z: 1000 }, { x: 100, z: -200 }],
-    ["stops at the edge", { x: 0, z: 500 }, { x: 0, z: WALK_HALF - 50 }, { x: 0, z: 50 }],
-    ["slides along the edge", { x: 300, z: 300 }, { x: 0, z: WALK_HALF }, { x: 300, z: 0 }],
-    // fitView can start you outside; walking in still works, walking further out doesn't
-    ["outside, walking in", { x: 0, z: -400 }, { x: 0, z: WALK_HALF + 900 }, { x: 0, z: -400 }],
-    ["outside, walking out", { x: 0, z: 400 }, { x: 0, z: WALK_HALF + 900 }, { x: 0, z: 0 }],
+    ["stops at the back wall", { x: 0, z: -500 }, { x: 0, z: -WALK_HALF + 50 }, { x: 0, z: -50 }],
+    ["slides along a side wall", { x: 300, z: 300 }, { x: WALK_HALF, z: 0 }, { x: 0, z: 300 }],
+    ["stops at the front wall", { x: 0, z: 500 }, { x: 2000, z: WALK_HALF - 50 }, { x: 0, z: 50 }],
+    ["walks out the door", { x: 0, z: 500 }, { x: 0, z: WALK_HALF - 50 }, { x: 0, z: 500 }],
+    [
+      "hallway walls hem you in",
+      { x: 500, z: 0 },
+      { x: 0, z: ROOM_HALF + 500 },
+      { x: HALL_WALK, z: 0 },
+    ],
+    [
+      "stops at the end of the hallway",
+      { x: 0, z: 1000 },
+      { x: 0, z: HALL_END - 300 },
+      { x: 0, z: 300 - WALL_GAP },
+    ],
+    // past the walls, walking in still works, walking further out doesn't
+    ["outside, walking in", { x: 0, z: 400 }, { x: 0, z: -WALK_HALF - 900 }, { x: 0, z: 400 }],
+    ["outside, walking out", { x: 0, z: -400 }, { x: 0, z: -WALK_HALF - 900 }, { x: 0, z: 0 }],
   ])("%s", (_, step, at, expected) => {
     const s = clampStep(step, at);
     expect(s.x).toBeCloseTo(expected.x);
@@ -245,9 +269,11 @@ describe("tapStep", () => {
   const at = { x: 0, z: 1000 };
   it.each([
     ["walks to the spot", v(300, -500), { x: 300, z: -1500 }],
-    ["walks right up to the floor edge", v(0, -SPACE_HALF), { x: 0, z: -SPACE_HALF - 1000 }],
-    ["ignores ground past the floor", v(SPACE_HALF + 1, 0), null],
-    ["ignores ground past the floor (z)", v(0, -SPACE_HALF - 1), null],
+    ["walks right up to the back wall", v(0, -ROOM_HALF), { x: 0, z: -WALK_HALF - 1000 }],
+    ["walks into the hallway", v(0, ROOM_HALF + 1000), { x: 0, z: ROOM_HALF }],
+    ["ignores ground past the walls", v(ROOM_HALF + 1, 0), null],
+    ["ignores ground past the walls (z)", v(0, -ROOM_HALF - 1), null],
+    ["ignores ground beside the hallway", v(HALL_HALF + 1, ROOM_HALF + 500), null],
   ])("%s", (_, spot, expected) => {
     const s = tapStep(spot, at);
     if (expected === null) return expect(s).toBeNull();
@@ -265,5 +291,54 @@ describe("stance", () => {
   ])("%s", (_, target, position, expected) => {
     const s = stance({ target, position });
     for (const k of ["x", "z", "yaw", "pitch"] as const) expect(s[k]).toBeCloseTo(expected[k]);
+  });
+});
+
+const st = (x: number, z: number, yaw = 0, pitch = 0) => ({ x, z, yaw, pitch });
+
+describe("keepInside", () => {
+  it.each([
+    ["inside: untouched", st(100, -200, 30, 5), st(100, -200, 30, 5)],
+    ["past the walls", st(9000, -9000, 30), st(WALK_HALF, -WALK_HALF, 30)],
+  ])("%s", (_, s, expected) => {
+    expect(keepInside(s)).toEqual(expected);
+  });
+});
+
+describe("entrance", () => {
+  it.each([
+    ["ends where it's sent", st(1000, 2000, 20, 5), st(1000, 2000, 20, 5)],
+    ["pulls a far-back view into the room", st(0, 9000, 0, -3), undefined],
+  ])("%s", (_, to, expected) => {
+    const path = entrance(to);
+    expect(path[0]).toEqual(HALL_START);
+    expect(HALL_START.z).toBeGreaterThan(ROOM_HALF);
+    // straight through the doorway
+    expect(path[1].x).toBe(0);
+    expect(path[1].z).toBeLessThan(ROOM_HALF);
+    const end = path[path.length - 1];
+    expect(end.z).toBeLessThanOrEqual(path[1].z);
+    if (expected) expect(end).toEqual(expected);
+  });
+});
+
+describe("alongPath", () => {
+  const path = [st(0, 0), st(0, -1000), st(1000, -1000, 90, 10)];
+  it.each([
+    ["start", 0, st(0, 0)],
+    ["halfway down the first leg", 0.25, st(0, -500)],
+    ["halfway down the second leg, half turned", 0.75, st(500, -1000, 45, 5)],
+    ["end", 1, st(1000, -1000, 90, 10)],
+    ["clamps past the end", 2, st(1000, -1000, 90, 10)],
+  ])("%s", (_, t, expected) => {
+    const s = alongPath(path, t);
+    for (const k of ["x", "z", "yaw", "pitch"] as const) expect(s[k]).toBeCloseTo(expected[k]);
+  });
+
+  it.each([
+    ["turns the short way round", [st(0, 0, 170), st(0, -100, -170)], 180],
+    ["turns on the spot", [st(0, 0, 0), st(0, 0, 90)], 45],
+  ])("%s", (_, p, yaw) => {
+    expect(Math.abs(alongPath(p, 0.5).yaw)).toBeCloseTo(yaw);
   });
 });
