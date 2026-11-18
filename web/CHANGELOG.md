@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.25](https://github.com/jacantwell/home-dash/compare/v0.2.24...v0.2.25) (2026-11-18)
+
+
+### Bug Fixes
+
+* **web:** orbit round where you stand after walking ([#108](https://github.com/jacantwell/home-dash/issues/108)) ([c4abef9](https://github.com/jacantwell/home-dash/commit/c4abef99e2bbcd09e9627b2c8b68760dd20806c7))
+
 ## [0.2.24](https://github.com/jacantwell/home-dash/compare/v0.2.23...v0.2.24) (2026-11-18)
 
 
