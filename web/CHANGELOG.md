@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.28](https://github.com/jacantwell/home-dash/compare/v0.2.27...v0.2.28) (2026-11-18)
+
+
+### Features
+
+* **web:** make the 3D gallery a lit room you walk into ([#114](https://github.com/jacantwell/home-dash/issues/114)) ([ab212e7](https://github.com/jacantwell/home-dash/commit/ab212e72336c3bd6eba8ac5cbd2cd4e465f06382))
+
 ## [0.2.27](https://github.com/jacantwell/home-dash/compare/v0.2.26...v0.2.27) (2026-11-18)
 
 
