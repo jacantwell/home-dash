@@ -16,14 +16,12 @@ interface CanvasBoardProps {
 }
 
 const HINT =
-  "Arrow keys to walk (shift to hurry), drag to look around, right-drag to pan, scroll to " +
-  "zoom. Drag a photo to move it, " +
-  "shift-drag to push it back or pull it forward, alt-drag to turn and resize it. " +
+  "Arrow keys or scroll to walk (shift to hurry), drag to look around. Drag a photo to " +
+  "move it, shift-drag to push it back or pull it forward, alt-drag to turn and resize it. " +
   "Double-click to open.";
 const TOUCH_HINT =
-  "Tap the floor to walk there, drag to look around, pinch to zoom, two-finger drag to pan. " +
-  "Drag a photo to move it, " +
-  "tap it to open, turn or resize it.";
+  "Tap the floor to walk there, drag to look around, pinch to step forward or back. " +
+  "Drag a photo to move it, tap it to open, turn or resize it.";
 
 export function CanvasBoard({ photos, layout, onChange, onOpen }: CanvasBoardProps) {
   const wrap = useRef<HTMLDivElement>(null);
