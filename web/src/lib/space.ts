@@ -133,6 +133,68 @@ export function planeHit(origin: Vec3, dir: Vec3, point: Vec3, normal: Vec3): Ve
   return { x: origin.x + dir.x * k, y: origin.y + dir.y * k, z: origin.z + dir.z * k };
 }
 
+// how far the camera can walk: a bit past the floor, so you can step back and take it all in
+export const WALK_HALF = SPACE_HALF * 1.5;
+
+/** A move across the floor. */
+export interface Step {
+  x: number;
+  z: number;
+}
+
+/** Held keys as -1/0/1: forward (Up/Down) and turn (Left is +), plus Shift to go faster. */
+export function walkIntent(held: ReadonlySet<string>): {
+  forward: number;
+  turn: number;
+  fast: boolean;
+} {
+  const axis = (pos: string, neg: string) => Number(held.has(pos)) - Number(held.has(neg));
+  return {
+    forward: axis("ArrowUp", "ArrowDown"),
+    turn: axis("ArrowLeft", "ArrowRight"),
+    fast: held.has("Shift"),
+  };
+}
+
+/** Unit floor direction from `eye` towards `target`; null if looking straight down. */
+export function heading(eye: Vec3, target: Vec3): Step | null {
+  const x = target.x - eye.x;
+  const z = target.z - eye.z;
+  const len = Math.hypot(x, z);
+  return len < 1e-6 ? null : { x: x / len, z: z / len };
+}
+
+/**
+ * `step` cut short (per axis, so you slide along the edge) to keep the eye within WALK_HALF
+ * and the target within the space. Points already outside can only come back in.
+ */
+export function clampStep(step: Step, eye: Vec3, target: Vec3): Step {
+  const axis = (k: "x" | "z") => {
+    const lo = Math.max(Math.min(0, -WALK_HALF - eye[k]), Math.min(0, -SPACE_HALF - target[k]));
+    const hi = Math.min(Math.max(0, WALK_HALF - eye[k]), Math.max(0, SPACE_HALF - target[k]));
+    return clamp(step[k], lo, hi);
+  };
+  return { x: axis("x"), z: axis("z") };
+}
+
+/** `target` swung `deg` round the vertical through `eye`; positive turns left. */
+export function turnAbout(eye: Vec3, target: Vec3, deg: number): Vec3 {
+  const a = deg * DEG;
+  const dx = target.x - eye.x;
+  const dz = target.z - eye.z;
+  return {
+    x: eye.x + dx * Math.cos(a) + dz * Math.sin(a),
+    y: target.y,
+    z: eye.z - dx * Math.sin(a) + dz * Math.cos(a),
+  };
+}
+
+/** Tapping the floor at `spot` walks the eye there; null if it's off the floor. */
+export function tapStep(spot: Vec3, eye: Vec3, target: Vec3): Step | null {
+  if (Math.abs(spot.x) > SPACE_HALF || Math.abs(spot.z) > SPACE_HALF) return null;
+  return clampStep({ x: spot.x - eye.x, z: spot.z - eye.z }, eye, target);
+}
+
 export interface View {
   target: Vec3;
   position: Vec3;

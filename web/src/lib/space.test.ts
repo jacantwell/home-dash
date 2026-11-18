@@ -16,6 +16,12 @@ import {
   resolveLayout,
   SPACE_H,
   SPACE_HALF,
+  tapStep,
+  turnAbout,
+  walkIntent,
+  WALK_HALF,
+  clampStep,
+  heading,
 } from "./space";
 
 const at = (over: Partial<Placement> = {}): Placement => ({
@@ -172,5 +178,83 @@ describe("fitView", () => {
     const dist = v.position.z - v.target.z;
     const halfWidth = Math.tan((25 * Math.PI) / 180) * 1.5 * dist;
     expect(Math.max(...xs)).toBeLessThan(halfWidth);
+  });
+});
+
+const v = (x: number, z: number, y = 0) => ({ x, y, z });
+
+describe("walkIntent", () => {
+  it.each([
+    [[], { forward: 0, turn: 0, fast: false }],
+    [["ArrowUp"], { forward: 1, turn: 0, fast: false }],
+    [["ArrowDown", "Shift"], { forward: -1, turn: 0, fast: true }],
+    [["ArrowLeft"], { forward: 0, turn: 1, fast: false }],
+    [["ArrowRight", "ArrowUp"], { forward: 1, turn: -1, fast: false }],
+    [["ArrowLeft", "ArrowRight"], { forward: 0, turn: 0, fast: false }],
+    [["a", "Enter"], { forward: 0, turn: 0, fast: false }],
+  ])("%o", (keys, expected) => {
+    expect(walkIntent(new Set(keys))).toEqual(expected);
+  });
+});
+
+describe("heading", () => {
+  it.each([
+    ["down -z", v(0, 1000, 500), v(0, 0), { x: 0, z: -1 }],
+    ["along +x, ignoring height", v(0, 0, 900), v(300, 0, 0), { x: 1, z: 0 }],
+    ["straight down", v(5, 5, 900), v(5, 5, 0), null],
+  ])("%s", (_, eye, target, expected) => {
+    const h = heading(eye, target);
+    if (expected === null) return expect(h).toBeNull();
+    expect(h!.x).toBeCloseTo(expected.x);
+    expect(h!.z).toBeCloseTo(expected.z);
+  });
+});
+
+describe("clampStep", () => {
+  it.each([
+    ["inside: untouched", { x: 100, z: -200 }, v(0, 1000), v(0, 0), { x: 100, z: -200 }],
+    // target hits the floor edge first
+    ["target at the edge", { x: 500, z: 0 }, v(2700, 0), v(2900, 0), { x: 100, z: 0 }],
+    // eye hits the walk edge; the other axis still slides
+    ["eye at the edge", { x: 0, z: 500 }, v(0, WALK_HALF - 50), v(0, 0), { x: 0, z: 50 }],
+    ["slides along the edge", { x: 300, z: 300 }, v(0, WALK_HALF), v(0, 0), { x: 300, z: 0 }],
+    // fitView can start the eye outside; walking in still works, walking further out doesn't
+    ["outside, walking in", { x: 0, z: -400 }, v(0, WALK_HALF + 900), v(0, 0), { x: 0, z: -400 }],
+    ["outside, walking out", { x: 0, z: 400 }, v(0, WALK_HALF + 900), v(0, 0), { x: 0, z: 0 }],
+  ])("%s", (_, step, eye, target, expected) => {
+    const s = clampStep(step, eye, target);
+    expect(s.x).toBeCloseTo(expected.x);
+    expect(s.z).toBeCloseTo(expected.z);
+  });
+});
+
+describe("turnAbout", () => {
+  it.each([
+    // looking down -z: left is -x
+    ["quarter left", 90, v(-1000, 0, 200)],
+    ["quarter right", -90, v(1000, 0, 200)],
+    ["about face", 180, v(0, 1000, 200)],
+    ["no turn", 0, v(0, -1000, 200)],
+  ])("%s", (_, deg, expected) => {
+    const t = turnAbout(v(0, 0, 600), v(0, -1000, 200), deg);
+    expect(t.x).toBeCloseTo(expected.x);
+    expect(t.y).toBe(200);
+    expect(t.z).toBeCloseTo(expected.z);
+  });
+});
+
+describe("tapStep", () => {
+  const eye = v(0, 1000, 400);
+  const target = v(0, 0, 300);
+  it.each([
+    ["walks to the spot", v(300, -500), { x: 300, z: -1500 }],
+    ["clamps to keep the target in", v(0, -SPACE_HALF), { x: 0, z: -SPACE_HALF }],
+    ["ignores ground past the floor", v(SPACE_HALF + 1, 0), null],
+    ["ignores ground past the floor (z)", v(0, -SPACE_HALF - 1), null],
+  ])("%s", (_, spot, expected) => {
+    const s = tapStep(spot, eye, target);
+    if (expected === null) return expect(s).toBeNull();
+    expect(s!.x).toBeCloseTo(expected.x);
+    expect(s!.z).toBeCloseTo(expected.z);
   });
 });
