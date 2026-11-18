@@ -1194,6 +1194,10 @@ ol.pc-log {
   touch-action: none;
   user-select: none;
 }
+.canvas-wrap:focus {
+  outline: none;
+}
+.canvas-wrap:focus-visible,
 .canvas-wrap:has(.sr-only :focus-visible) {
   outline: 2px solid var(--xp-sel);
   outline-offset: -2px;

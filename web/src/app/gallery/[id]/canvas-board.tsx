@@ -16,11 +16,13 @@ interface CanvasBoardProps {
 }
 
 const HINT =
-  "Drag to look around, right-drag to pan, scroll to zoom. Drag a photo to move it, " +
+  "Arrow keys to walk (shift to hurry), drag to look around, right-drag to pan, scroll to " +
+  "zoom. Drag a photo to move it, " +
   "shift-drag to push it back or pull it forward, alt-drag to turn and resize it. " +
   "Double-click to open.";
 const TOUCH_HINT =
-  "Drag to look around, pinch to zoom, two-finger drag to pan. Drag a photo to move it, " +
+  "Tap the floor to walk there, drag to look around, pinch to zoom, two-finger drag to pan. " +
+  "Drag a photo to move it, " +
   "tap it to open, turn or resize it.";
 
 export function CanvasBoard({ photos, layout, onChange, onOpen }: CanvasBoardProps) {
@@ -84,7 +86,14 @@ export function CanvasBoard({ photos, layout, onChange, onOpen }: CanvasBoardPro
   }
 
   return (
-    <div ref={wrap} className="canvas-wrap" role="application" aria-label="3D canvas">
+    <div
+      ref={wrap}
+      className="canvas-wrap"
+      role="application"
+      aria-label="3D canvas"
+      // focused, the arrow keys walk; the scene listens for them
+      tabIndex={0}
+    >
       {failed && (
         <p className="space-fallback">
           This browser can&apos;t draw the 3D canvas. Use Thumbnails, or move photos with the

@@ -31,11 +31,17 @@ import type { Layout, Photo, Placement } from "@/lib/api";
 import {
   cardSize,
   clampPlacement,
+  clampStep,
   fitView,
+  heading,
   planeHit,
   SPACE_H,
   SPACE_HALF,
+  type Step,
+  tapStep,
+  turnAbout,
   type Vec3,
+  walkIntent,
 } from "@/lib/space";
 
 export interface SceneEvents {
@@ -55,6 +61,8 @@ type Drag = {
   moved: boolean;
 };
 
+type Glide = { from: Vec3; target: Vec3; step: Step; start: number; ms: number };
+
 interface Card {
   photo: Photo;
   group: Group;
@@ -73,6 +81,14 @@ const PAPER = "#f3f1ea";
 const THICK = 4;
 const OUTLINE = 10;
 const DEG = Math.PI / 180;
+// world units and degrees per second
+const WALK_SPEED = 800;
+const TURN_SPEED = 90;
+const FAST = 2.5;
+const GLIDE_SPEED = 2000;
+const WALK_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+
+const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
 /**
  * A photo as a texture. If the CORS check fails, fetch again past the HTTP cache: an
@@ -125,6 +141,10 @@ export class SpaceScene {
   private stalk: Line;
   private drag: Drag | null = null;
   private empty: { from: Vector2; pointer: number } | null = null;
+  private pointers = new Set<number>();
+  private held = new Set<string>();
+  private glide: Glide | null = null;
+  private last = 0;
   private dirty = true;
   private frame = 0;
   private resize: ResizeObserver;
@@ -181,6 +201,9 @@ export class SpaceScene {
     container.addEventListener("pointerup", this.onUp);
     container.addEventListener("pointercancel", this.onUp);
     container.addEventListener("dblclick", this.onDoubleClick);
+    container.addEventListener("keydown", this.onKeyDown);
+    container.addEventListener("keyup", this.onKeyUp);
+    container.addEventListener("blur", this.onBlur);
 
     this.resize = new ResizeObserver(() => this.fitSize());
     this.resize.observe(container);
@@ -236,6 +259,9 @@ export class SpaceScene {
     this.container.removeEventListener("pointerup", this.onUp);
     this.container.removeEventListener("pointercancel", this.onUp);
     this.container.removeEventListener("dblclick", this.onDoubleClick);
+    this.container.removeEventListener("keydown", this.onKeyDown);
+    this.container.removeEventListener("keyup", this.onKeyUp);
+    this.container.removeEventListener("blur", this.onBlur);
     for (const [id, card] of this.cards) this.drop(id, card);
     this.shadowTex.dispose();
     this.controls.dispose();
@@ -375,10 +401,18 @@ export class SpaceScene {
   }
 
   private onDown = (e: PointerEvent) => {
+    this.pointers.add(e.pointerId);
+    // a second finger makes it a pinch, not a tap
+    if (this.pointers.size > 1) this.empty = null;
     if (e.button !== 0 || e.target !== this.renderer.domElement) return;
+    this.glide = null;
+    // so the arrow keys walk
+    this.container.focus({ preventScroll: true });
     const hit = this.pick(e);
     if (!hit) {
-      this.empty = { from: new Vector2(e.clientX, e.clientY), pointer: e.pointerId };
+      if (this.pointers.size === 1) {
+        this.empty = { from: new Vector2(e.clientX, e.clientY), pointer: e.pointerId };
+      }
       return;
     }
     // ours, not the camera's
@@ -437,6 +471,7 @@ export class SpaceScene {
   };
 
   private onUp = (e: PointerEvent) => {
+    this.pointers.delete(e.pointerId);
     if (this.drag && e.pointerId === this.drag.pointer) {
       this.container.releasePointerCapture?.(e.pointerId);
       this.drag = null;
@@ -446,9 +481,11 @@ export class SpaceScene {
     }
     if (this.empty && e.pointerId === this.empty.pointer) {
       const still = Math.hypot(e.clientX - this.empty.from.x, e.clientY - this.empty.from.y);
-      // a click on empty space (not the end of an orbit) clears the selection
-      if (still < TAP_SLOP_PX) this.events.onSelect(null);
       this.empty = null;
+      // a click on empty space (not the end of an orbit) clears the selection
+      if (still >= TAP_SLOP_PX || e.type !== "pointerup") return;
+      if (this.selected || e.pointerType === "mouse") this.events.onSelect(null);
+      else this.walkTo(e);
     }
   };
 
@@ -456,6 +493,79 @@ export class SpaceScene {
     const hit = this.pick(e);
     if (hit) this.events.onOpen(hit.id);
   };
+
+  // --- walking ---
+
+  private onKeyDown = (e: KeyboardEvent) => {
+    // keys on the photo buttons edit photos
+    if (e.target !== this.container || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (WALK_KEYS.has(e.key)) e.preventDefault();
+    this.held.add(e.key);
+  };
+
+  private onKeyUp = (e: KeyboardEvent) => {
+    this.held.delete(e.key);
+  };
+
+  private onBlur = () => {
+    this.held.clear();
+  };
+
+  /** Glide to where a tap hit the floor. */
+  private walkTo(e: PointerEvent) {
+    const ray = this.ray(e);
+    const spot = planeHit(ray.origin, ray.direction, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
+    const step = spot && tapStep(spot, this.camera.position, this.controls.target);
+    if (!step) return;
+    const dist = Math.hypot(step.x, step.z);
+    this.glide = {
+      from: this.camera.position.clone(),
+      target: this.controls.target.clone(),
+      step,
+      start: performance.now(),
+      ms: Math.min(1200, Math.max(350, (dist / GLIDE_SPEED) * 1000)),
+    };
+  }
+
+  private moveBy(step: Step) {
+    this.camera.position.x += step.x;
+    this.camera.position.z += step.z;
+    this.controls.target.x += step.x;
+    this.controls.target.z += step.z;
+  }
+
+  private walk(now: number) {
+    const dt = Math.min(0.05, (now - this.last) / 1000);
+    this.last = now;
+    const eye = this.camera.position;
+    const target = this.controls.target;
+
+    const { forward, turn, fast } = walkIntent(this.held);
+    if (forward || turn) {
+      this.glide = null;
+      const k = fast ? FAST : 1;
+      if (turn) {
+        const t = turnAbout(eye, target, turn * TURN_SPEED * k * dt);
+        target.set(t.x, t.y, t.z);
+      }
+      const dir = heading(eye, target);
+      if (forward && dir) {
+        const d = forward * WALK_SPEED * k * dt;
+        this.moveBy(clampStep({ x: dir.x * d, z: dir.z * d }, eye, target));
+      }
+      this.controls.update();
+      return;
+    }
+
+    const g = this.glide;
+    if (!g) return;
+    const t = Math.min(1, Math.max(0, (now - g.start) / g.ms));
+    const k = ease(t);
+    eye.set(g.from.x + g.step.x * k, eye.y, g.from.z + g.step.z * k);
+    target.set(g.target.x + g.step.x * k, target.y, g.target.z + g.step.z * k);
+    if (t === 1) this.glide = null;
+    this.controls.update();
+  }
 
   // --- frame loop ---
 
@@ -482,8 +592,9 @@ export class SpaceScene {
     this.dirty = true;
   }
 
-  private loop = () => {
+  private loop = (now = performance.now()) => {
     this.frame = requestAnimationFrame(this.loop);
+    this.walk(now);
     // damping keeps emitting "change" for a few frames after you let go
     this.controls.update();
     if (!this.dirty) return;
