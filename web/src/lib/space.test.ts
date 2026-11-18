@@ -22,6 +22,7 @@ import {
   WALK_HALF,
   clampStep,
   heading,
+  pullIn,
 } from "./space";
 
 const at = (over: Partial<Placement> = {}): Placement => ({
@@ -213,8 +214,8 @@ describe("heading", () => {
 describe("clampStep", () => {
   it.each([
     ["inside: untouched", { x: 100, z: -200 }, v(0, 1000), v(0, 0), { x: 100, z: -200 }],
-    // target hits the floor edge first
-    ["target at the edge", { x: 500, z: 0 }, v(2700, 0), v(2900, 0), { x: 100, z: 0 }],
+    // target hits the walk edge first
+    ["target at the edge", { x: 500, z: 0 }, v(4000, 0), v(WALK_HALF - 100, 0), { x: 100, z: 0 }],
     // eye hits the walk edge; the other axis still slides
     ["eye at the edge", { x: 0, z: 500 }, v(0, WALK_HALF - 50), v(0, 0), { x: 0, z: 50 }],
     ["slides along the edge", { x: 300, z: 300 }, v(0, WALK_HALF), v(0, 0), { x: 300, z: 0 }],
@@ -248,7 +249,7 @@ describe("tapStep", () => {
   const target = v(0, 0, 300);
   it.each([
     ["walks to the spot", v(300, -500), { x: 300, z: -1500 }],
-    ["clamps to keep the target in", v(0, -SPACE_HALF), { x: 0, z: -SPACE_HALF }],
+    ["walks right up to the floor edge", v(0, -SPACE_HALF), { x: 0, z: -SPACE_HALF - 1000 }],
     ["ignores ground past the floor", v(SPACE_HALF + 1, 0), null],
     ["ignores ground past the floor (z)", v(0, -SPACE_HALF - 1), null],
   ])("%s", (_, spot, expected) => {
@@ -256,5 +257,25 @@ describe("tapStep", () => {
     if (expected === null) return expect(s).toBeNull();
     expect(s!.x).toBeCloseTo(expected.x);
     expect(s!.z).toBeCloseTo(expected.z);
+  });
+});
+
+describe("pullIn", () => {
+  const eye = v(0, 1000, 500);
+  it.each([
+    // same line of sight, just closer
+    ["pulls a far target in", v(0, 600, 200), 250, v(0, 800, 350)],
+    ["leaves a near target", v(0, 900, 500), 250, v(0, 900, 500)],
+  ])("%s", (_, target, ahead, expected) => {
+    const t = pullIn(eye, target, ahead);
+    expect(t.x).toBeCloseTo(expected.x);
+    expect(t.y).toBeCloseTo(expected.y);
+    expect(t.z).toBeCloseTo(expected.z);
+  });
+
+  it("leaves it if the eye is way outside the walk area", () => {
+    const far = v(0, WALK_HALF + 2000, 500);
+    const target = v(0, 0, 300);
+    expect(pullIn(far, target, 250)).toBe(target);
   });
 });

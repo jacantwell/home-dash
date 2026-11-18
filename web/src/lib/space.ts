@@ -165,16 +165,29 @@ export function heading(eye: Vec3, target: Vec3): Step | null {
 }
 
 /**
- * `step` cut short (per axis, so you slide along the edge) to keep the eye within WALK_HALF
- * and the target within the space. Points already outside can only come back in.
+ * `step` cut short (per axis, so you slide along the edge) to keep the eye and target within
+ * WALK_HALF. Points already outside can only come back in.
  */
 export function clampStep(step: Step, eye: Vec3, target: Vec3): Step {
   const axis = (k: "x" | "z") => {
-    const lo = Math.max(Math.min(0, -WALK_HALF - eye[k]), Math.min(0, -SPACE_HALF - target[k]));
-    const hi = Math.min(Math.max(0, WALK_HALF - eye[k]), Math.max(0, SPACE_HALF - target[k]));
+    const lo = Math.max(Math.min(0, -WALK_HALF - eye[k]), Math.min(0, -WALK_HALF - target[k]));
+    const hi = Math.min(Math.max(0, WALK_HALF - eye[k]), Math.max(0, WALK_HALF - target[k]));
     return clamp(step[k], lo, hi);
   };
   return { x: axis("x"), z: axis("z") };
+}
+
+/**
+ * `target` slid along the line of sight to `ahead` from the eye, so the view orbits round
+ * where you stand. Left alone if it's already that close or would land outside WALK_HALF.
+ */
+export function pullIn(eye: Vec3, target: Vec3, ahead: number): Vec3 {
+  const d = { x: target.x - eye.x, y: target.y - eye.y, z: target.z - eye.z };
+  const len = Math.hypot(d.x, d.y, d.z);
+  if (len <= ahead) return target;
+  const k = ahead / len;
+  const near = { x: eye.x + d.x * k, y: eye.y + d.y * k, z: eye.z + d.z * k };
+  return Math.abs(near.x) <= WALK_HALF && Math.abs(near.z) <= WALK_HALF ? near : target;
 }
 
 /** `target` swung `deg` round the vertical through `eye`; positive turns left. */
