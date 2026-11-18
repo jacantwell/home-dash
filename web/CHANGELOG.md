@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.23](https://github.com/jacantwell/home-dash/compare/v0.2.22...v0.2.23) (2026-11-18)
+
+
+### Bug Fixes
+
+* **web:** stop the gallery canvas spilling off phones ([#104](https://github.com/jacantwell/home-dash/issues/104)) ([6bf90e7](https://github.com/jacantwell/home-dash/commit/6bf90e76c81d9eaa409d7e43907df4ab2a7f4ee6))
+
 ## [0.2.22](https://github.com/jacantwell/home-dash/compare/v0.2.21...v0.2.22) (2026-11-17)
 
 
