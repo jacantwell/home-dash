@@ -156,56 +156,46 @@ export function walkIntent(held: ReadonlySet<string>): {
   };
 }
 
-/** Unit floor direction from `eye` towards `target`; null if looking straight down. */
-export function heading(eye: Vec3, target: Vec3): Step | null {
-  const x = target.x - eye.x;
-  const z = target.z - eye.z;
-  const len = Math.hypot(x, z);
-  return len < 1e-6 ? null : { x: x / len, z: z / len };
+// where your eyes are when you're standing on the floor, and how far you can look up or down
+export const EYE_H = 300;
+export const MAX_PITCH = 80;
+
+/** Where you stand and which way you face: yaw 0 looks down -z, positive turns left. */
+export interface Stance {
+  x: number;
+  z: number;
+  yaw: number;
+  pitch: number;
+}
+
+/** Unit floor direction you face at `yaw` degrees. */
+export function ahead(yaw: number): Step {
+  return { x: -Math.sin(yaw * DEG), z: -Math.cos(yaw * DEG) };
 }
 
 /**
- * `step` cut short (per axis, so you slide along the edge) to keep the eye and target within
- * WALK_HALF. Points already outside can only come back in.
+ * `step` cut short (per axis, so you slide along the edge) to keep `at` within WALK_HALF.
+ * If you're already outside, you can only come back in.
  */
-export function clampStep(step: Step, eye: Vec3, target: Vec3): Step {
-  const axis = (k: "x" | "z") => {
-    const lo = Math.max(Math.min(0, -WALK_HALF - eye[k]), Math.min(0, -WALK_HALF - target[k]));
-    const hi = Math.min(Math.max(0, WALK_HALF - eye[k]), Math.max(0, WALK_HALF - target[k]));
-    return clamp(step[k], lo, hi);
-  };
+export function clampStep(step: Step, at: Step): Step {
+  const axis = (k: "x" | "z") =>
+    clamp(step[k], Math.min(0, -WALK_HALF - at[k]), Math.max(0, WALK_HALF - at[k]));
   return { x: axis("x"), z: axis("z") };
 }
 
-/**
- * `target` slid along the line of sight to `ahead` from the eye, so the view orbits round
- * where you stand. Left alone if it's already that close or would land outside WALK_HALF.
- */
-export function pullIn(eye: Vec3, target: Vec3, ahead: number): Vec3 {
-  const d = { x: target.x - eye.x, y: target.y - eye.y, z: target.z - eye.z };
-  const len = Math.hypot(d.x, d.y, d.z);
-  if (len <= ahead) return target;
-  const k = ahead / len;
-  const near = { x: eye.x + d.x * k, y: eye.y + d.y * k, z: eye.z + d.z * k };
-  return Math.abs(near.x) <= WALK_HALF && Math.abs(near.z) <= WALK_HALF ? near : target;
-}
-
-/** `target` swung `deg` round the vertical through `eye`; positive turns left. */
-export function turnAbout(eye: Vec3, target: Vec3, deg: number): Vec3 {
-  const a = deg * DEG;
-  const dx = target.x - eye.x;
-  const dz = target.z - eye.z;
+/** Turn your head: `dx` degrees left, `dy` degrees up, never past looking straight up/down. */
+export function lookBy(s: Stance, dx: number, dy: number): Stance {
   return {
-    x: eye.x + dx * Math.cos(a) + dz * Math.sin(a),
-    y: target.y,
-    z: eye.z - dx * Math.sin(a) + dz * Math.cos(a),
+    ...s,
+    yaw: wrapDeg(s.yaw + dx),
+    pitch: clamp(s.pitch + dy, -MAX_PITCH, MAX_PITCH),
   };
 }
 
-/** Tapping the floor at `spot` walks the eye there; null if it's off the floor. */
-export function tapStep(spot: Vec3, eye: Vec3, target: Vec3): Step | null {
+/** Tapping the floor at `spot` walks you there from `at`; null if it's off the floor. */
+export function tapStep(spot: Vec3, at: Step): Step | null {
   if (Math.abs(spot.x) > SPACE_HALF || Math.abs(spot.z) > SPACE_HALF) return null;
-  return clampStep({ x: spot.x - eye.x, z: spot.z - eye.z }, eye, target);
+  return clampStep({ x: spot.x - at.x, z: spot.z - at.z }, at);
 }
 
 export interface View {
@@ -242,4 +232,17 @@ export function fitView(
   const dist = Math.max(halfH / tanV, halfW / (tanV * aspect)) * 1.15 + (hi.z - lo.z) / 2;
   const lift = dist * 0.2;
   return { target, position: { x: target.x, y: target.y + lift, z: target.z + dist } };
+}
+
+/** Standing where `view` puts the camera, at eye height, looking at its target. */
+export function stance(view: View): Stance {
+  const dx = view.target.x - view.position.x;
+  const dz = view.target.z - view.position.z;
+  const pitch = Math.atan2(view.target.y - EYE_H, Math.hypot(dx, dz)) / DEG;
+  return {
+    x: view.position.x,
+    z: view.position.z,
+    yaw: Math.atan2(-dx, -dz) / DEG,
+    pitch: clamp(pitch, -MAX_PITCH, MAX_PITCH),
+  };
 }

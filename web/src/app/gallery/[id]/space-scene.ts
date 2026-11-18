@@ -25,24 +25,23 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import type { Layout, Photo, Placement } from "@/lib/api";
 import {
+  ahead,
   cardSize,
   clampPlacement,
   clampStep,
+  EYE_H,
   fitView,
-  heading,
+  lookBy,
   planeHit,
-  pullIn,
-  SPACE_H,
   SPACE_HALF,
+  type Stance,
+  stance,
   type Step,
   tapStep,
-  turnAbout,
   type Vec3,
-  WALK_HALF,
   walkIntent,
 } from "@/lib/space";
 
@@ -63,7 +62,7 @@ type Drag = {
   moved: boolean;
 };
 
-type Glide = { from: Vec3; target: Vec3; step: Step; start: number; ms: number };
+type Glide = { from: Step; step: Step; start: number; ms: number };
 
 interface Card {
   photo: Photo;
@@ -76,7 +75,9 @@ interface Card {
 }
 
 const FOV = 50;
+// fingers wobble more than mice
 const TAP_SLOP_PX = 4;
+const TOUCH_SLOP_PX = 10;
 const SKY = "#a9c8e8";
 const SEL = "#316ac5";
 const PAPER = "#f3f1ea";
@@ -88,8 +89,9 @@ const WALK_SPEED = 800;
 const TURN_SPEED = 90;
 const FAST = 2.5;
 const GLIDE_SPEED = 2000;
-// once you walk, the view orbits round a point this far ahead instead of the photos' middle
-const LOOK_AHEAD = 250;
+// world units per pixel
+const PINCH_SPEED = 4;
+const WHEEL_SPEED = 1.5;
 const WALK_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
@@ -137,7 +139,6 @@ export class SpaceScene {
   private renderer: WebGLRenderer;
   private scene = new Scene();
   private camera = new PerspectiveCamera(FOV, 1, 10, 30000);
-  private controls: OrbitControls;
   private raycaster = new Raycaster();
   private shadowTex = shadowTexture();
   private cards = new Map<string, Card>();
@@ -145,7 +146,10 @@ export class SpaceScene {
   private stalk: Line;
   private drag: Drag | null = null;
   private empty: { from: Vector2; pointer: number } | null = null;
-  private pointers = new Set<number>();
+  private me: Stance = { x: 0, z: 1600, yaw: 0, pitch: 0 };
+  private touches = new Map<number, Vector2>();
+  private look: { pointer: number; last: Vector2 } | null = null;
+  private pinch: number | null = null;
   private held = new Set<string>();
   private glide: Glide | null = null;
   private last = 0;
@@ -189,22 +193,14 @@ export class SpaceScene {
     this.stalk.visible = false;
     this.scene.add(this.stalk);
 
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.minDistance = 150;
-    this.controls.maxDistance = SPACE_HALF * 3;
-    this.controls.maxPolarAngle = Math.PI / 2 - 0.02;
-    this.controls.addEventListener("change", () => {
-      this.keepTargetInside();
-      this.invalidate();
-    });
+    this.aim();
 
-    // capture phase on the container: runs before OrbitControls sees the pointer
     container.addEventListener("pointerdown", this.onDown, true);
     container.addEventListener("pointermove", this.onMove);
     container.addEventListener("pointerup", this.onUp);
     container.addEventListener("pointercancel", this.onUp);
     container.addEventListener("dblclick", this.onDoubleClick);
+    container.addEventListener("wheel", this.onWheel, { passive: false });
     container.addEventListener("keydown", this.onKeyDown);
     container.addEventListener("keyup", this.onKeyUp);
     container.addEventListener("blur", this.onBlur);
@@ -237,10 +233,8 @@ export class SpaceScene {
   private fit(layout: Layout, photos: Photo[]) {
     const { width, height } = this.container.getBoundingClientRect();
     const view = fitView(layout, photos, FOV, width / Math.max(height, 1) || 1.5);
-    this.controls.target.set(view.target.x, view.target.y, view.target.z);
-    this.camera.position.set(view.position.x, view.position.y, view.position.z);
-    this.controls.update();
-    this.invalidate();
+    this.me = stance(view);
+    this.aim();
   }
 
   /** Where the camera sits, in world units. */
@@ -249,9 +243,9 @@ export class SpaceScene {
     return { x, y, z };
   }
 
-  /** Which way round the vertical the camera looks from, in degrees (0 = looking down -z). */
+  /** Which way round the vertical you're facing, in degrees (0 = looking down -z). */
   viewYaw(): number {
-    return this.controls.getAzimuthalAngle() / DEG;
+    return this.me.yaw;
   }
 
   dispose() {
@@ -263,12 +257,12 @@ export class SpaceScene {
     this.container.removeEventListener("pointerup", this.onUp);
     this.container.removeEventListener("pointercancel", this.onUp);
     this.container.removeEventListener("dblclick", this.onDoubleClick);
+    this.container.removeEventListener("wheel", this.onWheel);
     this.container.removeEventListener("keydown", this.onKeyDown);
     this.container.removeEventListener("keyup", this.onKeyUp);
     this.container.removeEventListener("blur", this.onBlur);
     for (const [id, card] of this.cards) this.drop(id, card);
     this.shadowTex.dispose();
-    this.controls.dispose();
     this.scene.traverse((o) => {
       if (o instanceof Mesh || o instanceof Line) {
         o.geometry.dispose();
@@ -405,23 +399,26 @@ export class SpaceScene {
   }
 
   private onDown = (e: PointerEvent) => {
-    this.pointers.add(e.pointerId);
-    // a second finger makes it a pinch, not a tap
-    if (this.pointers.size > 1) this.empty = null;
     if (e.button !== 0 || e.target !== this.renderer.domElement) return;
+    this.touches.set(e.pointerId, new Vector2(e.clientX, e.clientY));
+    this.container.setPointerCapture(e.pointerId);
     this.glide = null;
     // so the arrow keys walk
     this.container.focus({ preventScroll: true });
-    const hit = this.pick(e);
-    if (!hit) {
-      if (this.pointers.size === 1) {
-        this.empty = { from: new Vector2(e.clientX, e.clientY), pointer: e.pointerId };
-      }
+    if (this.touches.size === 2 && !this.drag) {
+      // two fingers pinch to step forward or back; never a tap or a look
+      const [a, b] = this.touches.values();
+      this.pinch = a.distanceTo(b);
+      this.empty = this.look = null;
       return;
     }
-    // ours, not the camera's
-    this.controls.enabled = false;
-    this.container.setPointerCapture(e.pointerId);
+    if (this.touches.size > 1) return;
+    const hit = this.pick(e);
+    if (!hit) {
+      this.empty = { from: new Vector2(e.clientX, e.clientY), pointer: e.pointerId };
+      this.look = { pointer: e.pointerId, last: new Vector2(e.clientX, e.clientY) };
+      return;
+    }
     const card = this.cards.get(hit.id)!;
     const pos = card.group.position;
     const mode = e.altKey ? "turn" : e.shiftKey ? "depth" : "move";
@@ -444,6 +441,23 @@ export class SpaceScene {
   };
 
   private onMove = (e: PointerEvent) => {
+    this.touches.get(e.pointerId)?.set(e.clientX, e.clientY);
+    if (this.pinch !== null && this.touches.size >= 2) {
+      const [a, b] = this.touches.values();
+      const dist = a.distanceTo(b);
+      this.stepForward((dist - this.pinch) * PINCH_SPEED);
+      this.pinch = dist;
+      return;
+    }
+    const l = this.look;
+    if (l && e.pointerId === l.pointer) {
+      // grab the world: what's under your finger stays under it
+      const k = FOV / Math.max(1, this.renderer.domElement.clientHeight);
+      this.me = lookBy(this.me, (e.clientX - l.last.x) * k, (e.clientY - l.last.y) * k);
+      l.last.set(e.clientX, e.clientY);
+      this.aim();
+      return;
+    }
     const d = this.drag;
     if (!d) {
       if (e.buttons === 0 && e.target === this.renderer.domElement) {
@@ -475,22 +489,32 @@ export class SpaceScene {
   };
 
   private onUp = (e: PointerEvent) => {
-    this.pointers.delete(e.pointerId);
+    if (!this.touches.delete(e.pointerId)) return;
+    this.container.releasePointerCapture?.(e.pointerId);
+    if (this.touches.size < 2) this.pinch = null;
+    if (this.look?.pointer === e.pointerId) this.look = null;
     if (this.drag && e.pointerId === this.drag.pointer) {
-      this.container.releasePointerCapture?.(e.pointerId);
       this.drag = null;
-      this.controls.enabled = true;
       this.renderer.domElement.style.cursor = "";
       return;
     }
     if (this.empty && e.pointerId === this.empty.pointer) {
       const still = Math.hypot(e.clientX - this.empty.from.x, e.clientY - this.empty.from.y);
+      const slop = e.pointerType === "mouse" ? TAP_SLOP_PX : TOUCH_SLOP_PX;
       this.empty = null;
-      // a click on empty space (not the end of an orbit) clears the selection
-      if (still >= TAP_SLOP_PX || e.type !== "pointerup") return;
+      // a click on empty space (not the end of a look) clears the selection
+      if (still >= slop || e.type !== "pointerup") return;
       if (this.selected || e.pointerType === "mouse") this.events.onSelect(null);
       else this.walkTo(e);
     }
+  };
+
+  private onWheel = (e: WheelEvent) => {
+    if (e.target !== this.renderer.domElement) return;
+    e.preventDefault();
+    this.glide = null;
+    const px = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 40 : e.deltaY;
+    this.stepForward(-px * WHEEL_SPEED);
   };
 
   private onDoubleClick = (e: MouseEvent) => {
@@ -519,52 +543,42 @@ export class SpaceScene {
   private walkTo(e: PointerEvent) {
     const ray = this.ray(e);
     const spot = planeHit(ray.origin, ray.direction, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
-    const step = spot && tapStep(spot, this.camera.position, this.controls.target);
+    const step = spot && tapStep(spot, this.me);
     if (!step) return;
-    this.pivotHere();
     const dist = Math.hypot(step.x, step.z);
     this.glide = {
-      from: this.camera.position.clone(),
-      target: this.controls.target.clone(),
+      from: { x: this.me.x, z: this.me.z },
       step,
       start: performance.now(),
       ms: Math.min(1200, Math.max(350, (dist / GLIDE_SPEED) * 1000)),
     };
   }
 
-  private pivotHere() {
-    const t = pullIn(this.camera.position, this.controls.target, LOOK_AHEAD);
-    this.controls.target.set(t.x, t.y, t.z);
+  private stepForward(d: number) {
+    const dir = ahead(this.me.yaw);
+    const s = clampStep({ x: dir.x * d, z: dir.z * d }, this.me);
+    this.me = { ...this.me, x: this.me.x + s.x, z: this.me.z + s.z };
+    this.aim();
   }
 
-  private moveBy(step: Step) {
-    this.camera.position.x += step.x;
-    this.camera.position.z += step.z;
-    this.controls.target.x += step.x;
-    this.controls.target.z += step.z;
+  /** Put the camera where you're standing, looking where you're facing. */
+  private aim() {
+    this.camera.position.set(this.me.x, EYE_H, this.me.z);
+    this.camera.rotation.set(this.me.pitch * DEG, this.me.yaw * DEG, 0, "YXZ");
+    this.invalidate();
   }
 
   private walk(now: number) {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    const eye = this.camera.position;
-    const target = this.controls.target;
 
     const { forward, turn, fast } = walkIntent(this.held);
     if (forward || turn) {
       this.glide = null;
-      this.pivotHere();
-      const k = fast ? FAST : 1;
-      if (turn) {
-        const t = turnAbout(eye, target, turn * TURN_SPEED * k * dt);
-        target.set(t.x, t.y, t.z);
-      }
-      const dir = heading(eye, target);
-      if (forward && dir) {
-        const d = forward * WALK_SPEED * k * dt;
-        this.moveBy(clampStep({ x: dir.x * d, z: dir.z * d }, eye, target));
-      }
-      this.controls.update();
+      const k = (fast ? FAST : 1) * dt;
+      if (turn) this.me = lookBy(this.me, turn * TURN_SPEED * k, 0);
+      if (forward) this.stepForward(forward * WALK_SPEED * k);
+      this.aim();
       return;
     }
 
@@ -572,23 +586,12 @@ export class SpaceScene {
     if (!g) return;
     const t = Math.min(1, Math.max(0, (now - g.start) / g.ms));
     const k = ease(t);
-    eye.set(g.from.x + g.step.x * k, eye.y, g.from.z + g.step.z * k);
-    target.set(g.target.x + g.step.x * k, target.y, g.target.z + g.step.z * k);
+    this.me = { ...this.me, x: g.from.x + g.step.x * k, z: g.from.z + g.step.z * k };
     if (t === 1) this.glide = null;
-    this.controls.update();
+    this.aim();
   }
 
   // --- frame loop ---
-
-  private keepTargetInside() {
-    const t = this.controls.target;
-    const clampTo = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-    t.set(
-      clampTo(t.x, -WALK_HALF, WALK_HALF),
-      clampTo(t.y, 0, SPACE_H),
-      clampTo(t.z, -WALK_HALF, WALK_HALF),
-    );
-  }
 
   private fitSize() {
     const { width, height } = this.container.getBoundingClientRect();
@@ -606,8 +609,6 @@ export class SpaceScene {
   private loop = (now = performance.now()) => {
     this.frame = requestAnimationFrame(this.loop);
     this.walk(now);
-    // damping keeps emitting "change" for a few frames after you let go
-    this.controls.update();
     if (!this.dirty) return;
     this.dirty = false;
     this.renderer.render(this.scene, this.camera);
