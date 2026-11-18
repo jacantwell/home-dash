@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.24](https://github.com/jacantwell/home-dash/compare/v0.2.23...v0.2.24) (2026-11-18)
+
+
+### Features
+
+* **web:** walk around the gallery canvas ([#106](https://github.com/jacantwell/home-dash/issues/106)) ([ea7be87](https://github.com/jacantwell/home-dash/commit/ea7be87f8673e04d7c52d74e6ec9c77398f45b08))
+
 ## [0.2.23](https://github.com/jacantwell/home-dash/compare/v0.2.22...v0.2.23) (2026-11-18)
 
 
