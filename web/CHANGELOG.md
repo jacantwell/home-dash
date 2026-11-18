@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.26](https://github.com/jacantwell/home-dash/compare/v0.2.25...v0.2.26) (2026-11-18)
+
+
+### Bug Fixes
+
+* **web:** walk the gallery canvas in first person ([#110](https://github.com/jacantwell/home-dash/issues/110)) ([1a140a9](https://github.com/jacantwell/home-dash/commit/1a140a997330666b8e555f41b6eb06a7585fbe85))
+
 ## [0.2.25](https://github.com/jacantwell/home-dash/compare/v0.2.24...v0.2.25) (2026-11-18)
 
 
