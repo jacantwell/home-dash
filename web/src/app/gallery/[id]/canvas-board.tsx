@@ -15,14 +15,6 @@ interface CanvasBoardProps {
   onOpen: (index: number) => void;
 }
 
-const HINT =
-  "Arrow keys or scroll to walk (shift to hurry), drag to look around. Drag a photo to " +
-  "move it, shift-drag to push it back or pull it forward, alt-drag to turn and resize it. " +
-  "Double-click to open.";
-const TOUCH_HINT =
-  "Tap the floor to walk there, drag to look around, pinch to step forward or back. " +
-  "Drag a photo to move it, tap it to open, turn or resize it.";
-
 export function CanvasBoard({ photos, layout, onChange, onOpen }: CanvasBoardProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const [scene, setScene] = useState<SpaceScene | null>(null);
@@ -142,11 +134,6 @@ export function CanvasBoard({ photos, layout, onChange, onOpen }: CanvasBoardPro
           </Button>
         </div>
       )}
-
-      <p className="space-hint">
-        <span className="hint-mouse">{HINT}</span>
-        <span className="hint-touch">{TOUCH_HINT}</span>
-      </p>
 
       {/* the canvas is one <canvas>; these give keyboards and screen readers a way in */}
       <ul className="sr-only" aria-label="Photos in the canvas">
