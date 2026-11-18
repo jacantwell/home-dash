@@ -1188,7 +1188,7 @@ ol.pc-log {
 
 .canvas-wrap {
   position: relative;
-  height: clamp(360px, 70vh, 820px);
+  height: clamp(320px, 70dvh, 820px);
   overflow: hidden;
   background: #a9c8e8;
   touch-action: none;
@@ -1222,6 +1222,24 @@ ol.pc-log {
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   pointer-events: none;
+}
+.space-hint .hint-touch {
+  display: none;
+}
+@media (pointer: coarse) {
+  .space-hint .hint-mouse {
+    display: none;
+  }
+  .space-hint .hint-touch {
+    display: inline;
+  }
+}
+/* phones: icon buttons don't need the 75px dialog-button width, so the row fits on one line */
+@media (max-width: 480px) {
+  .space-tools .xp-btn {
+    min-width: 0;
+    padding: 0 8px;
+  }
 }
 .space-fallback {
   position: absolute;
