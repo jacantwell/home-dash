@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.27](https://github.com/jacantwell/home-dash/compare/v0.2.26...v0.2.27) (2026-11-18)
+
+
+### Bug Fixes
+
+* **web:** drop the movement hint from the gallery canvas ([#112](https://github.com/jacantwell/home-dash/issues/112)) ([485a518](https://github.com/jacantwell/home-dash/commit/485a5182c85e3a1e3e6ef3488f60e7a290ab054c))
+
 ## [0.2.26](https://github.com/jacantwell/home-dash/compare/v0.2.25...v0.2.26) (2026-11-18)
 
 
