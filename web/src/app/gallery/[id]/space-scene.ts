@@ -5,11 +5,7 @@ import {
   CircleGeometry,
   Color,
   DoubleSide,
-  DirectionalLight,
-  Fog,
-  GridHelper,
   Group,
-  HemisphereLight,
   Line,
   LineBasicMaterial,
   Mesh,
@@ -29,21 +25,25 @@ import {
 import type { Layout, Photo, Placement } from "@/lib/api";
 import {
   ahead,
+  alongPath,
   cardSize,
   clampPlacement,
   clampStep,
+  entrance,
   EYE_H,
   fitView,
+  HALL_START,
+  keepInside,
   lookBy,
   planeHit,
-  SPACE_HALF,
   type Stance,
   stance,
-  type Step,
   tapStep,
   type Vec3,
   walkIntent,
 } from "@/lib/space";
+
+import { buildRoom, WALL } from "./room";
 
 export interface SceneEvents {
   onSelect: (id: string | null) => void;
@@ -62,7 +62,7 @@ type Drag = {
   moved: boolean;
 };
 
-type Glide = { from: Step; step: Step; start: number; ms: number };
+type Glide = { path: Stance[]; start: number; ms: number };
 
 interface Card {
   photo: Photo;
@@ -78,7 +78,6 @@ const FOV = 50;
 // fingers wobble more than mice
 const TAP_SLOP_PX = 4;
 const TOUCH_SLOP_PX = 10;
-const SKY = "#a9c8e8";
 const SEL = "#316ac5";
 const PAPER = "#f3f1ea";
 const THICK = 4;
@@ -89,6 +88,7 @@ const WALK_SPEED = 800;
 const TURN_SPEED = 90;
 const FAST = 2.5;
 const GLIDE_SPEED = 2000;
+const ENTRY_SPEED = 1100;
 // world units per pixel
 const PINCH_SPEED = 4;
 const WHEEL_SPEED = 1.5;
@@ -146,7 +146,7 @@ export class SpaceScene {
   private stalk: Line;
   private drag: Drag | null = null;
   private empty: { from: Vector2; pointer: number } | null = null;
-  private me: Stance = { x: 0, z: 1600, yaw: 0, pitch: 0 };
+  private me: Stance = HALL_START;
   private touches = new Map<number, Vector2>();
   private look: { pointer: number; last: Vector2 } | null = null;
   private pinch: number | null = null;
@@ -157,6 +157,7 @@ export class SpaceScene {
   private frame = 0;
   private resize: ResizeObserver;
   private fitted = false;
+  private entered = false;
   private disposed = false;
 
   constructor(
@@ -168,22 +169,8 @@ export class SpaceScene {
     this.renderer.domElement.className = "space-canvas";
     container.prepend(this.renderer.domElement);
 
-    this.scene.background = new Color(SKY);
-    this.scene.fog = new Fog(SKY, 7000, 16000);
-    this.scene.add(new HemisphereLight("#ffffff", "#8a5a2b", 2.2));
-    const sun = new DirectionalLight("#fff6e8", 1.4);
-    sun.position.set(800, 2000, 1200);
-    this.scene.add(sun);
-
-    const floor = new Mesh(
-      new PlaneGeometry(SPACE_HALF * 2, SPACE_HALF * 2),
-      new MeshLambertMaterial({ color: "#c49a63" }),
-    );
-    floor.rotation.x = -Math.PI / 2;
-    this.scene.add(floor);
-    const grid = new GridHelper(SPACE_HALF * 2, 24, "#8a5a2b", "#a87a45");
-    grid.position.y = 0.5;
-    this.scene.add(grid);
+    this.scene.background = new Color(WALL);
+    this.scene.add(buildRoom());
 
     // line from the selected photo down to the floor, so you can tell how far back it is
     this.stalk = new Line(
@@ -223,18 +210,36 @@ export class SpaceScene {
       if (this.drag?.id !== photo.id) this.place(card, p);
     }
     this.select(selected);
-    if (!this.fitted && this.cards.size) {
-      this.fitted = true;
+    if (!this.entered || (!this.fitted && this.cards.size)) {
+      this.fitted = this.cards.size > 0;
       this.fit(layout, photos);
     }
     this.invalidate();
   }
 
+  /** Head for the spot that takes in every photo: in through the door the first time. */
   private fit(layout: Layout, photos: Photo[]) {
     const { width, height } = this.container.getBoundingClientRect();
-    const view = fitView(layout, photos, FOV, width / Math.max(height, 1) || 1.5);
-    this.me = stance(view);
+    const to = stance(fitView(layout, photos, FOV, width / Math.max(height, 1) || 1.5));
+    const path = this.entered ? [this.me, keepInside(to)] : entrance(to);
+    this.entered = true;
+    const end = path[path.length - 1];
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      this.glide = null;
+      this.me = end;
+      this.aim();
+      return;
+    }
+    this.me = path[0];
     this.aim();
+    const dist = path
+      .slice(1)
+      .reduce((d, b, i) => d + Math.hypot(b.x - path[i].x, b.z - path[i].z), 0);
+    this.glide = {
+      path,
+      start: performance.now(),
+      ms: Math.min(6000, Math.max(800, (dist / ENTRY_SPEED) * 1000)),
+    };
   }
 
   /** Where the camera sits, in world units. */
@@ -547,8 +552,7 @@ export class SpaceScene {
     if (!step) return;
     const dist = Math.hypot(step.x, step.z);
     this.glide = {
-      from: { x: this.me.x, z: this.me.z },
-      step,
+      path: [this.me, { ...this.me, x: this.me.x + step.x, z: this.me.z + step.z }],
       start: performance.now(),
       ms: Math.min(1200, Math.max(350, (dist / GLIDE_SPEED) * 1000)),
     };
@@ -585,8 +589,7 @@ export class SpaceScene {
     const g = this.glide;
     if (!g) return;
     const t = Math.min(1, Math.max(0, (now - g.start) / g.ms));
-    const k = ease(t);
-    this.me = { ...this.me, x: g.from.x + g.step.x * k, z: g.from.z + g.step.z * k };
+    this.me = alongPath(g.path, ease(t));
     if (t === 1) this.glide = null;
     this.aim();
   }
