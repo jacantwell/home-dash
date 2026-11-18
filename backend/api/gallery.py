@@ -28,7 +28,7 @@ from api.photos import (
 ALBUM_TITLE_MAX = 80
 LAYOUT_MAX_ITEMS = 2000
 # canvas space bounds, shared with web/src/lib/space.ts: x/z in ±SPACE_HALF, y in 0..SPACE_H
-SPACE_HALF = 3000
+SPACE_HALF = 4500
 SPACE_H = 3000
 DIMENSION_MAX = 30_000
 
