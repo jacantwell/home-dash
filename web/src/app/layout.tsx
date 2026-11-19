@@ -32,7 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <span aria-hidden>&middot;</span>
               <Link href="/gallery">gallery</Link>
               <span aria-hidden>&middot;</span>
-              <Link href="/rounds">rounds</Link>
+              <Link href="/split">split</Link>
               <span aria-hidden>&middot;</span>
               <Link href="/terms">terms</Link>
               <AuthNav />
