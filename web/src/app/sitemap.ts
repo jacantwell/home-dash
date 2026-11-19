@@ -9,7 +9,7 @@ const STATIC = [
   "/chatroom",
   "/calendar",
   "/gallery",
-  "/rounds",
+  "/split",
   "/terms",
 ] as const;
 
