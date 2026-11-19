@@ -19,7 +19,7 @@ describe("Home page", () => {
     ["calendar/", "/calendar"],
     ["sprites/", "/sprites"],
     ["gallery/", "/gallery"],
-    ["split/", "/split"],
+    ["rounds/", "/rounds"],
     ["terms.html", "/terms"],
   ])("lists %s pointing at %s", (name, href) => {
     render(<Page />);
