@@ -21,7 +21,7 @@ describe("siteUrl", () => {
 describe("sitemap", () => {
   const urls = sitemap().map((e) => e.url);
 
-  it.each(["/", "/board", "/etch", "/chatroom", "/calendar", "/gallery", "/split", "/terms"])(
+  it.each(["/", "/board", "/etch", "/chatroom", "/calendar", "/gallery", "/rounds", "/terms"])(
     "lists %s",
     (path) => {
       expect(urls).toContain(`${siteUrl()}${path === "/" ? "" : path}`);
