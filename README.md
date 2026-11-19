@@ -161,9 +161,14 @@ same as `NEXT_PUBLIC_APP_VERSION`) and kicks off the environment's exploration +
 Both names must match the environments declared on the product in Viewport (Product settings →
 Environments); the action does not create them.
 
-Only tagged versions reach staging or Duku, so every Duku build maps to a GitHub Release. PR
-previews are deliberately not explored either: exploration runs at the environment level only, so
-a PR's signal comes from CI and the release it lands in.
+Only tagged versions reach staging or Duku, so every Duku build maps to a GitHub Release.
+
+PR previews go to the **staging Antidote platform** instead (`antidote-pr.yml`): each PR head's
+Vercel Preview is recorded as a build, and nothing runs until someone comments `@antidoteapp` on
+the PR. The Antidote GitHub App then tests the latest recorded build and posts the results on the
+PR. It needs variable `ANTIDOTE_STAGING_PRODUCT_ID`, secret `ANTIDOTE_STAGING_API_KEY` (a staging
+key for that product's org), Preview deployments on for the product, and the staging GitHub App
+installed on this repo and linked to the org.
 
 Neither publish fires off a `push:` event. The staging one chains onto the release-please job
 that created the tag, and the production one is the second job of the promote run, because
