@@ -1,0 +1,66 @@
+# Records each PR head's Vercel preview as an Antidote build on the staging
+# platform. Nothing is tested on push: comment `@antidoteapp` on the PR to
+# start a test, and the Antidote GitHub App posts the results there.
+name: Antidote PR preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: antidote-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: read
+
+jobs:
+  record:
+    name: Record preview
+    # A fork's PR gets no secrets.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Wait for Vercel Preview deployment
+        id: vercel
+        uses: ./.github/actions/wait-for-vercel
+        with:
+          sha: ${{ github.event.pull_request.head.sha }}
+          environment: Preview
+
+      # The action runs the antidote CLI, which needs Node 22.4+.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.nvmrc
+
+      - name: Record preview in Antidote
+        id: antidote
+        uses: duku-ai/actions/preview@preview/v1
+        with:
+          api-url: ${{ vars.ANTIDOTE_STAGING_API_URL || 'https://platform.staging.getantidote.com' }}
+          api-key: ${{ secrets.ANTIDOTE_STAGING_API_KEY }}
+          product-id: ${{ vars.ANTIDOTE_STAGING_PRODUCT_ID }}
+          exploration-url: ${{ steps.vercel.outputs.url }}
+          github-token: ${{ github.token }}
+
+      - name: Summary
+        if: always()
+        env:
+          URL: ${{ steps.vercel.outputs.url }}
+          TARGET: ${{ steps.antidote.outputs.target-id }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          {
+            echo "## Antidote preview"
+            echo
+            echo "- **Commit:** \`${SHA:0:7}\`"
+            echo "- **Preview:** ${URL:-none}"
+            echo "- **Build:** ${TARGET:-not recorded}"
+            echo
+            echo "Comment \`@antidoteapp\` on the PR to test this build."
+          } >> "$GITHUB_STEP_SUMMARY"
