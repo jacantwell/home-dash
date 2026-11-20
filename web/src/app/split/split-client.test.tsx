@@ -38,6 +38,44 @@ describe("SplitClient", () => {
     expect(result()).toHaveTextContent(summary);
   });
 
+  it.each([
+    ["18", "2 pay £31.47, 1 pays £31.46", "total £94.40"],
+    ["12.75", "2 pay £30.07, 1 pays £30.06", "total £90.20"],
+    ["0", "2 pay £26.67, 1 pays £26.66", "total £80.00"],
+  ])("splits £80 between three people with a custom %s%% tip", async (tip, shares, total) => {
+    const user = await fill("80", 3);
+    await user.click(screen.getByRole("button", { name: "Custom tip" }));
+    await user.type(screen.getByLabelText("Tip (%):"), tip);
+    expect(result()).toHaveTextContent(shares);
+    expect(result()).toHaveTextContent(total);
+  });
+
+  it.each(["-1", "101", "12.345"])("rejects an invalid custom tip of %s", async (tip) => {
+    const user = await fill("80");
+    await user.click(screen.getByRole("button", { name: "Custom tip" }));
+    const field = screen.getByLabelText("Tip (%):");
+    await user.type(field, tip);
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(result()).toHaveTextContent("Enter a tip percentage from 0 to 100");
+    expect(result()).not.toHaveTextContent("Each pays");
+  });
+
+  it("recovers the selected preset and clears custom tip input", async () => {
+    const user = await fill("80", 2, "10%");
+    const custom = screen.getByRole("button", { name: "Custom tip" });
+    await user.click(custom);
+    await user.type(screen.getByLabelText("Tip (%):"), "18");
+    await user.click(screen.getByRole("button", { name: "Use preset tips" }));
+    expect(result()).toHaveTextContent("Each pays £44.00");
+
+    await user.click(screen.getByRole("button", { name: "Custom tip" }));
+    await user.type(screen.getByLabelText("Tip (%):"), "12");
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.queryByLabelText("Tip (%):")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Tip:")).toHaveValue("0");
+    expect(result()).toHaveTextContent("Enter the bill total");
+  });
+
   it("flags an amount that isn't money", async () => {
     await fill("ten quid");
     expect(screen.getByLabelText("Bill (£):")).toHaveAttribute("aria-invalid", "true");
