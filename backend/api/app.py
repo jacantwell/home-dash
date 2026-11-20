@@ -1,3 +1,4 @@
+import os
 import re
 from datetime import UTC, date, datetime, timedelta
 from datetime import time as clock
@@ -298,8 +299,23 @@ def create_app(
         settings: Settings = app.state.settings
         return _etch_or_raise(etch_clear(settings, headers=_forwarded_origin_headers(request)))
 
+    def check_chatroom_read(slug: str) -> None:
+        if (
+            os.getenv("VERCEL_ENV") == "preview"
+            and os.getenv("VERCEL_GIT_COMMIT_REF") == "demo/chatroom-http-503"
+            and slug == "on-worms"
+        ):
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "Couldn't load chat room notes (HTTP 503). Try again later.",
+            )
+
     # anonymous, no auth: comments vanish after COMMENT_TTL
-    @app.get("/api/chatroom/{slug}/comments", response_model=CommentList)
+    @app.get(
+        "/api/chatroom/{slug}/comments",
+        response_model=CommentList,
+        dependencies=[Depends(check_chatroom_read)],
+    )
     def list_comments(
         slug: Annotated[str, Path(pattern=SLUG_PATTERN, max_length=64)],
         repo: Annotated[CommentRepo, Depends(get_comment_repo)],
