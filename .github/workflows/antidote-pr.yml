@@ -1,4 +1,4 @@
-# Records each PR head's Vercel preview as an Antidote build on the staging
+# Records each PR head's Vercel preview as an Antidote build on the sandbox
 # platform. Nothing is tested on push: comment `@antidoteapp` on the PR to
 # start a test, and the Antidote GitHub App posts the results there.
 name: Antidote PR preview
@@ -42,9 +42,9 @@ jobs:
         id: antidote
         uses: duku-ai/actions/preview@preview/v1
         with:
-          api-url: ${{ vars.ANTIDOTE_STAGING_API_URL || 'https://platform.staging.getantidote.com' }}
-          api-key: ${{ secrets.ANTIDOTE_STAGING_API_KEY }}
-          product-id: ${{ vars.ANTIDOTE_STAGING_PRODUCT_ID }}
+          api-url: ${{ vars.DUKU_API_URL }}
+          api-key: ${{ secrets.SANDBOX_PLATFORM_API_KEY }}
+          product-id: ${{ vars.DUKU_PRODUCT_ID }}
           exploration-url: ${{ steps.vercel.outputs.url }}
           github-token: ${{ github.token }}
 
