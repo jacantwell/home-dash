@@ -31,8 +31,10 @@ export function SplitClient() {
 
   const people = clampPeople(peopleText);
   const billPence = parsePounds(amount);
-  const tip = customTip === null ? presetTip : Number(customTip);
-  const invalidTip = customTip !== null && (!/^\d+(?:\.\d{1,2})?$/.test(customTip) || tip > 100);
+  const normalizedTip = customTip?.replaceAll(",", "") ?? null;
+  const tip = normalizedTip === null ? presetTip : Number(normalizedTip);
+  const invalidTip =
+    normalizedTip !== null && (!/^\d+(?:\.\d{1,2})?$/.test(normalizedTip) || tip > 100);
   const split = billPence === null || invalidTip ? null : splitBill(billPence, people, tip);
   const invalid = amount.trim() !== "" && billPence === null;
 
@@ -121,7 +123,7 @@ export function SplitClient() {
               className="xp-field w-20"
               inputMode="decimal"
               autoComplete="off"
-              placeholder="18"
+              placeholder="7,5"
               value={customTip}
               onChange={(e) => setCustomTip(e.target.value)}
               aria-invalid={customTip !== "" && invalidTip}
