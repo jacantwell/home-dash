@@ -26,17 +26,21 @@ function clampPeople(text: string): number {
 export function SplitClient() {
   const [amount, setAmount] = useState("");
   const [peopleText, setPeopleText] = useState(String(DEFAULT_PEOPLE));
-  const [tip, setTip] = useState(0);
+  const [presetTip, setPresetTip] = useState(0);
+  const [customTip, setCustomTip] = useState<string | null>(null);
 
   const people = clampPeople(peopleText);
   const billPence = parsePounds(amount);
-  const split = billPence === null ? null : splitBill(billPence, people, tip);
+  const tip = customTip === null ? presetTip : Number(customTip);
+  const invalidTip = customTip !== null && (!/^\d+(?:\.\d{1,2})?$/.test(customTip) || tip > 100);
+  const split = billPence === null || invalidTip ? null : splitBill(billPence, people, tip);
   const invalid = amount.trim() !== "" && billPence === null;
 
   function reset() {
     setAmount("");
     setPeopleText(String(DEFAULT_PEOPLE));
-    setTip(0);
+    setPresetTip(0);
+    setCustomTip(null);
   }
 
   return (
@@ -88,12 +92,13 @@ export function SplitClient() {
         <label className="xp-hdr-label" htmlFor="split-tip">
           Tip:
         </label>
-        <span className="flex items-center gap-2">
+        <span className="flex flex-wrap items-center gap-2">
           <select
             id="split-tip"
             className="xp-select"
-            value={tip}
-            onChange={(e) => setTip(Number(e.target.value))}
+            value={presetTip}
+            disabled={customTip !== null}
+            onChange={(e) => setPresetTip(Number(e.target.value))}
           >
             {TIP_OPTIONS.map((t) => (
               <option key={t} value={t}>
@@ -101,8 +106,29 @@ export function SplitClient() {
               </option>
             ))}
           </select>
+          <Button onClick={() => setCustomTip(customTip === null ? "" : null)}>
+            {customTip === null ? "Custom tip" : "Use preset tips"}
+          </Button>
           <Button onClick={reset}>Clear</Button>
         </span>
+        {customTip !== null && (
+          <>
+            <label className="xp-hdr-label" htmlFor="split-custom-tip">
+              Tip (%):
+            </label>
+            <input
+              id="split-custom-tip"
+              className="xp-field w-20"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="18"
+              value={customTip}
+              onChange={(e) => setCustomTip(e.target.value)}
+              aria-invalid={customTip !== "" && invalidTip}
+              aria-describedby={invalidTip && !invalid ? "split-tip-error" : undefined}
+            />
+          </>
+        )}
       </form>
 
       <div className="xp-pane-title">
@@ -121,6 +147,10 @@ export function SplitClient() {
           </>
         ) : invalid ? (
           <p id="split-amount-error">Enter the bill as an amount in pounds, like 42.50.</p>
+        ) : invalidTip ? (
+          <p id="split-tip-error">
+            Enter a tip percentage from 0 to 100 with up to two decimal places.
+          </p>
         ) : (
           <p>Enter the bill total to see what everyone pays.</p>
         )}
@@ -129,7 +159,7 @@ export function SplitClient() {
         <span>
           {people} {people === 1 ? "person" : "people"}
         </span>
-        <span>{tip === 0 ? "No tip" : `${tip}% tip`}</span>
+        <span>{invalidTip ? "Custom tip" : tip === 0 ? "No tip" : `${tip}% tip`}</span>
       </StatusBar>
     </div>
   );
