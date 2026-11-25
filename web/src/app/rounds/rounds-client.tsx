@@ -4,12 +4,21 @@ import { useState } from "react";
 
 import { PixelIcon } from "@/components/pixel-icon";
 import { Button, StatusBar } from "@/components/xp";
-import { addDrinker, type Drinker, nextBuyer, recordRound, totalRounds } from "@/lib/rounds";
+import {
+  addDrinker,
+  type Drinker,
+  nextBuyer,
+  recordRound,
+  totalRounds,
+  undoRound,
+} from "@/lib/rounds";
 
 export function RoundsClient() {
   const [drinkers, setDrinkers] = useState<Drinker[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Who bought each round, oldest first, so Undo takes back the latest.
+  const [history, setHistory] = useState<string[]>([]);
 
   const next = nextBuyer(drinkers);
   const buyer = next === null ? null : drinkers[next];
@@ -28,11 +37,27 @@ export function RoundsClient() {
   }
 
   function remove(index: number) {
+    const gone = drinkers[index].name;
     setDrinkers(drinkers.filter((_, i) => i !== index));
+    setHistory(history.filter((n) => n !== gone));
+  }
+
+  function buy() {
+    if (!buyer) return;
+    setDrinkers(recordRound(drinkers));
+    setHistory([...history, buyer.name]);
+  }
+
+  function undo() {
+    const last = history[0];
+    if (last === undefined) return;
+    setDrinkers(undoRound(drinkers, last));
+    setHistory(history.slice(1));
   }
 
   function reset() {
     setDrinkers([]);
+    setHistory([]);
     setName("");
     setError(null);
   }
@@ -72,9 +97,12 @@ export function RoundsClient() {
         {buyer ? (
           <>
             <p className="text-lg font-bold">It&apos;s {buyer.name}&apos;s round</p>
-            <Button className="mt-2" onClick={() => setDrinkers(recordRound(drinkers))}>
-              {buyer.name} bought a round
-            </Button>
+            <span className="mt-2 flex items-center gap-2">
+              <Button onClick={buy}>{buyer.name} bought a round</Button>
+              {history.length > 0 && (
+                <Button onClick={undo}>Undo {history.at(-1)}&apos;s round</Button>
+              )}
+            </span>
           </>
         ) : (
           <p>Add who&apos;s out to see whose round it is.</p>
