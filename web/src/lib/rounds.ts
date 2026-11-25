@@ -37,6 +37,13 @@ export function recordRound(drinkers: Drinker[]): Drinker[] {
   return drinkers.map((d, i) => (i === next ? { ...d, rounds: d.rounds + 1 } : d));
 }
 
+// Takes back one round from `name`; unchanged when they're gone or have none.
+export function undoRound(drinkers: Drinker[], name: string): Drinker[] {
+  return drinkers.map((d) =>
+    d.name === name && d.rounds > 0 ? { ...d, rounds: d.rounds - 1 } : d,
+  );
+}
+
 export function totalRounds(drinkers: Drinker[]): number {
   return drinkers.reduce((sum, d) => sum + d.rounds, 0);
 }

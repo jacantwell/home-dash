@@ -8,6 +8,7 @@ import {
   normaliseName,
   recordRound,
   totalRounds,
+  undoRound,
 } from "./rounds";
 
 const crew = (...rounds: number[]): Drinker[] =>
@@ -72,5 +73,17 @@ describe("totalRounds", () => {
     [crew(1, 2, 3), 6],
   ])("%j -> %d", (drinkers, expected) => {
     expect(totalRounds(drinkers)).toBe(expected);
+  });
+});
+
+describe("undoRound", () => {
+  it.each([
+    [crew(1, 0), "P1", crew(0, 0)],
+    [crew(2, 1), "P2", crew(2, 0)],
+    [crew(0, 1), "P1", crew(0, 1)],
+    [crew(1, 1), "Gone", crew(1, 1)],
+    [[], "P1", []],
+  ])("%j undo %j -> %j", (before, name, after) => {
+    expect(undoRound(before, name)).toEqual(after);
   });
 });
