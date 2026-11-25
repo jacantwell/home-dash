@@ -179,3 +179,7 @@ Configuration lives in repo settings: variables `DUKU_PRODUCT_ID`, `DUKU_API_URL
 sandbox platform) and secret `SANDBOX_PLATFORM_API_KEY`, which must belong to the same platform
 as the URL. The action is pinned to an unreleased commit of
 `duku-ai/actions`; see the comment in the workflow.
+
+## Pull request testing
+
+Each PR's Vercel preview is recorded as a build on Antidote. Comment `@antidoteapp` on the PR, optionally followed by what to check, and the Antidote GitHub App tests the preview and replies with what it found.
