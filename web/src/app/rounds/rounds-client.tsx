@@ -49,10 +49,10 @@ export function RoundsClient() {
   }
 
   function undo() {
-    const last = history.at(-1);
+    const last = history[0];
     if (last === undefined) return;
     setDrinkers(undoRound(drinkers, last));
-    setHistory(history.slice(0, -1));
+    setHistory(history.slice(1));
   }
 
   function reset() {
