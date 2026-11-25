@@ -41,7 +41,7 @@ describe("RoundsClient", () => {
 
   it.each([
     ["sam", "Sam is already out."],
-    ["   ", "Names are 1 to 24 characters."],
+    ["   ", "Names are 1 to 30 characters."],
   ])("refuses %j", async (name, reason) => {
     const user = await setup("Sam");
     await user.type(screen.getByLabelText("Name:"), name);

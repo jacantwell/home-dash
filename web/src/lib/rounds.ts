@@ -1,7 +1,7 @@
 // Whose round is it: the person who has bought the fewest, earliest added on a tie.
 
 export const MAX_PEOPLE = 20;
-export const MAX_NAME_LENGTH = 24;
+export const MAX_NAME_LENGTH = 30;
 
 export interface Drinker {
   name: string;

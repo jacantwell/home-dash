@@ -18,12 +18,12 @@ describe("normaliseName", () => {
     ["Sam", "Sam"],
     ["  Sam  ", "Sam"],
     ["Big   Dave", "Big Dave"],
-    ["a".repeat(24), "a".repeat(24)],
+    ["a".repeat(30), "a".repeat(30)],
   ])("%j -> %j", (input, expected) => {
     expect(normaliseName(input)).toBe(expected);
   });
 
-  it.each(["", "   ", "a".repeat(25)])("rejects %j", (input) => {
+  it.each(["", "   ", "a".repeat(31)])("rejects %j", (input) => {
     expect(normaliseName(input)).toBeNull();
   });
 });
@@ -35,7 +35,7 @@ describe("addDrinker", () => {
 
   it.each([
     [[{ name: "Sam", rounds: 0 }], "sam", "Sam is already out."],
-    [[], "", "Names are 1 to 24 characters."],
+    [[], "", "Names are 1 to 30 characters."],
     [crew(...Array<number>(MAX_PEOPLE).fill(0)), "Extra", "That's 20 already."],
   ])("refuses %j + %j", (drinkers, name, reason) => {
     expect(addDrinker(drinkers, name)).toEqual({ ok: false, reason });
