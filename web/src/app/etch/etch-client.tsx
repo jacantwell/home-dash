@@ -137,6 +137,12 @@ export function Etch() {
     };
   }, []);
 
+  function retry() {
+    setLoading(true);
+    setLoadError(null);
+    load(false);
+  }
+
   useEffect(() => load(false), [load]);
   useEffect(() => {
     const id = setInterval(() => load(true), POLL_MS);
@@ -272,8 +278,13 @@ export function Etch() {
         </div>
       )}
       {!etch && !loading && loadError && (
-        <div className="flex min-h-40 items-center justify-center bg-white px-6 text-center text-[#6d6a5e]">
-          {loadError}
+        <div
+          className="flex min-h-40 flex-col items-center justify-center gap-3 bg-white px-6 text-center text-[#6d6a5e]"
+          role="alert"
+        >
+          <p>The board is offline right now, so there&apos;s nothing to draw on.</p>
+          <p className="text-xs">{loadError}</p>
+          <Button onClick={retry}>Try again</Button>
         </div>
       )}
 
