@@ -179,3 +179,5 @@ Configuration lives in repo settings: variables `DUKU_PRODUCT_ID`, `DUKU_API_URL
 sandbox platform) and secret `SANDBOX_PLATFORM_API_KEY`, which must belong to the same platform
 as the URL. The action is pinned to an unreleased commit of
 `duku-ai/actions`; see the comment in the workflow.
+
+Pull request previews are tested on staging Antidote; see CONTRIBUTING.md.
