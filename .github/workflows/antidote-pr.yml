@@ -5,7 +5,7 @@ name: Antidote PR preview
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
   group: antidote-pr-${{ github.event.pull_request.number }}
@@ -40,13 +40,14 @@ jobs:
 
       - name: Record preview in Antidote
         id: antidote
-        uses: duku-ai/actions/preview@preview/v1
+        uses: duku-ai/actions/preview@f35dac2822089c3c1a91154657ce3c6e1806ec66
         with:
           api-url: ${{ vars.ANTIDOTE_STAGING_API_URL || 'https://platform.staging.getantidote.com' }}
           api-key: ${{ secrets.ANTIDOTE_STAGING_API_KEY }}
           product-id: ${{ vars.ANTIDOTE_STAGING_PRODUCT_ID }}
           exploration-url: ${{ steps.vercel.outputs.url }}
           github-token: ${{ github.token }}
+          pr-tests: first_revision
 
       - name: Summary
         if: always()
