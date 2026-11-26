@@ -48,11 +48,11 @@ const ENTRIES = [
     description: "House photo albums; pin them to a corkboard",
   },
   {
-    href: "/rounds",
-    name: "rounds/",
+    href: "/split",
+    name: "split/",
     icon: "folder",
     size: "-",
-    description: "Whose round is it? Track who's bought one at the pub",
+    description: "Split a bill between housemates, tip included",
   },
   {
     href: "/terms",
