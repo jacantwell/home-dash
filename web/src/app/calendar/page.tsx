@@ -18,7 +18,7 @@ export default async function CalendarPage() {
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">
-      <Window title="Appointment - House Calendar" icon="calendar" menu={MENU}>
+      <Window title="Appointments - House Calendar" icon="calendar" menu={MENU}>
         {userId ? (
           <CalendarClient />
         ) : (
