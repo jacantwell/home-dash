@@ -14,7 +14,7 @@ const MENU = ["File", "Edit", "View", "Help"];
 export default function RoundsPage() {
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">
-      <Window title="Whose round? - Tracker" icon="document" menu={MENU}>
+      <Window title="Whose round? - Round tracker" icon="document" menu={MENU}>
         <RoundsClient />
       </Window>
     </main>
