@@ -17,7 +17,7 @@ export default async function GalleryPage() {
   const { userId } = await auth();
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">
-      <Window title="My Pictures" icon="picture" menu={MENU}>
+      <Window title="My Pictures - Gallery" icon="picture" menu={MENU}>
         {userId ? (
           <GalleryClient />
         ) : (
