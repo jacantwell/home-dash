@@ -16,7 +16,7 @@ export default async function SpritesPage() {
   const { userId } = await auth();
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">
-      <Window title="untitled - Sprite Maker" icon="pencil" menu={MENU}>
+      <Window title="untitled - Sprite Editor" icon="pencil" menu={MENU}>
         <SpritesClient signedIn={Boolean(userId)} />
       </Window>
     </main>
